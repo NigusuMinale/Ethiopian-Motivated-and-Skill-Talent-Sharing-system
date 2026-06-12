@@ -1,4 +1,4 @@
-# Ethiopian Motivated and Skill Talent Sharing System — Fix Summary
+# Ethiopian Motivated and Skill Talent Sharing System 
 
 ## Overview
 
