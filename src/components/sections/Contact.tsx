@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
-import { Mail, GitBranch, Link2, Send, ExternalLink } from "lucide-react";
+import { Mail, GitBranch, Link2, Send, ExternalLink, Loader2, CheckCircle2 } from "lucide-react";
+import { api } from "@/lib/api";
 
 const links = [
   { label: "Email", value: "nigusu@emsts.et", href: "mailto:nigusu@emsts.et", icon: <Mail className="w-5 h-5" /> },
@@ -10,16 +11,37 @@ const links = [
 ];
 
 export default function Contact() {
-  const [form, setForm] = useState({ name: "", email: "", role: "individual", message: "" });
+  const [form, setForm] = useState({ name: "", email: "", subject: "", message: "", role: "individual" });
   const [submitted, setSubmitted] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState("");
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSubmitted(true);
+    setError("");
+    setIsSubmitting(true);
+
+    // Map the form fields to backend expectations
+    const subject = form.subject || `Joining as: ${form.role || "individual"}`;
+    
+    const result = await api.submitContact({
+      name: form.name,
+      email: form.email,
+      subject,
+      message: form.message || "Interested in joining EMSTS",
+    });
+
+    if (result.error) {
+      setError(result.error);
+      setIsSubmitting(false);
+    } else {
+      setSubmitted(true);
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -97,7 +119,7 @@ export default function Contact() {
                     className="text-center py-12 space-y-4"
                   >
                     <div className="w-16 h-16 rounded-full bg-primary/15 border border-primary/30 flex items-center justify-center mx-auto">
-                      <Send className="w-7 h-7 text-primary" />
+                      <CheckCircle2 className="w-7 h-7 text-primary" />
                     </div>
                     <h3 className="text-xl font-black text-foreground">You're on the list!</h3>
                     <p className="text-muted-foreground text-sm max-w-xs mx-auto">
@@ -107,7 +129,7 @@ export default function Contact() {
                 ) : (
                   <form onSubmit={handleSubmit} className="space-y-5">
                     <div>
-                      <h3 className="font-black text-foreground text-lg mb-1">Join the Waitlist</h3>
+                      <h3 className="text-black text-foreground text-lg mb-1">Join the Waitlist</h3>
                       <p className="text-muted-foreground text-xs">Be first when we launch.</p>
                     </div>
                     <div className="grid sm:grid-cols-2 gap-4">
@@ -136,21 +158,17 @@ export default function Contact() {
                       </div>
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-[10px] uppercase tracking-widest font-mono text-muted-foreground">I am joining as</label>
-                      <select
-                        name="role"
-                        value={form.role}
+                      <label className="text-[10px] uppercase tracking-widest font-mono text-muted-foreground">Subject</label>
+                      <input
+                        name="subject"
+                        value={form.subject}
                         onChange={handleChange}
-                        className="w-full px-4 py-2.5 rounded-xl border border-border/60 bg-secondary/40 text-foreground text-sm focus:outline-none focus:border-primary/50 transition-colors appearance-none"
-                      >
-                        <option value="individual">An individual / talent</option>
-                        <option value="company">A company / business</option>
-                        <option value="jobseeker">A job seeker</option>
-                        <option value="partner">A potential partner</option>
-                      </select>
+                        placeholder="What's this about?"
+                        className="w-full px-4 py-2.5 rounded-xl border border-border/60 bg-secondary/40 text-foreground placeholder:text-muted-foreground/40 text-sm focus:outline-none focus:border-primary/50 transition-colors"
+                      />
                     </div>
                     <div className="space-y-1.5">
-                      <label className="text-[10px] uppercase tracking-widest font-mono text-muted-foreground">Message (optional)</label>
+                      <label className="text-[10px] uppercase tracking-widest font-mono text-muted-foreground">Message</label>
                       <textarea
                         name="message"
                         value={form.message}
@@ -160,12 +178,27 @@ export default function Contact() {
                         className="w-full px-4 py-2.5 rounded-xl border border-border/60 bg-secondary/40 text-foreground placeholder:text-muted-foreground/40 text-sm focus:outline-none focus:border-primary/50 transition-colors resize-none"
                       />
                     </div>
+                    {error && (
+                      <div className="text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-xl px-4 py-2">
+                        {error}
+                      </div>
+                    )}
                     <button
                       type="submit"
-                      className="w-full py-3.5 rounded-xl bg-primary text-primary-foreground font-bold text-base flex items-center justify-center gap-2 shadow-lg shadow-primary/30 hover:opacity-90 transition-opacity"
+                      disabled={isSubmitting}
+                      className="w-full py-3.5 rounded-xl bg-primary text-primary-foreground font-bold text-base flex items-center justify-center gap-2 shadow-lg shadow-primary/30 hover:opacity-90 transition-opacity disabled:opacity-50"
                     >
-                      Join Waitlist
-                      <Send size={16} />
+                      {isSubmitting ? (
+                        <>
+                          <Loader2 size={16} className="animate-spin" />
+                          Submitting...
+                        </>
+                      ) : (
+                        <>
+                          Join Waitlist
+                          <Send size={16} />
+                        </>
+                      )}
                     </button>
                   </form>
                 )}

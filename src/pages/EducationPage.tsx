@@ -1,9 +1,15 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Link } from "wouter";
-import { ArrowLeft, BookOpen, GraduationCap, PlayCircle, Clock, Star, Award, Search, Filter, ChevronRight, Users } from "lucide-react";
+import { ArrowLeft, BookOpen, GraduationCap, PlayCircle, Clock, Star, Award, Search, Filter, ChevronRight, Users, Loader2, Plus, Trash2 } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { api } from "@/lib/api";
 
-const courses = [
+const categories = ["All", "Programming", "Web Development", "Data Science", "Networking", "Design", "Backend"];
+const levels = ["All", "Beginner", "Intermediate", "Advanced"];
+
+// Static featured courses (these are educational content, not DB-backed)
+const featuredCourses = [
   {
     id: "c1",
     title: "Introduction to Python Programming",
@@ -90,21 +96,63 @@ const courses = [
   },
 ];
 
-const categories = ["All", "Programming", "Web Development", "Data Science", "Networking", "Design", "Backend"];
-const levels = ["All", "Beginner", "Intermediate", "Advanced"];
-
 export default function EducationPage() {
+  const { isLoggedIn, user } = useAuth();
+  const [userEducation, setUserEducation] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const [catFilter, setCatFilter] = useState("All");
   const [levelFilter, setLevelFilter] = useState("All");
   const [search, setSearch] = useState("");
   const [expanded, setExpanded] = useState<string | null>(null);
+  const [showAddEdu, setShowAddEdu] = useState(false);
+  const [eduForm, setEduForm] = useState({ institutionName: "", degree: "", fieldOfStudy: "", startDate: "", endDate: "", description: "" });
+  const [eduError, setEduError] = useState("");
 
-  const filtered = courses.filter((c) => {
+  useEffect(() => {
+    const fetchEducation = async () => {
+      if (!isLoggedIn) {
+        setLoading(false);
+        return;
+      }
+      const result = await api.getEducation();
+      if (result.data?.education) {
+        setUserEducation(result.data.education);
+      }
+      setLoading(false);
+    };
+    fetchEducation();
+  }, [isLoggedIn]);
+
+  const filtered = featuredCourses.filter((c) => {
     const matchCat = catFilter === "All" || c.category === catFilter;
     const matchLevel = levelFilter === "All" || c.level === levelFilter;
     const matchSearch = search === "" || c.title.toLowerCase().includes(search.toLowerCase()) || c.tags.some(t => t.toLowerCase().includes(search.toLowerCase()));
     return matchCat && matchLevel && matchSearch;
   });
+
+  const handleAddEducation = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEduError("");
+    if (!eduForm.institutionName || !eduForm.degree) {
+      setEduError("Institution name and degree are required.");
+      return;
+    }
+    const result = await api.addEducation(eduForm);
+    if (result.error) {
+      setEduError(result.error);
+    } else if (result.data) {
+      setUserEducation(prev => [...prev, result.data]);
+      setEduForm({ institutionName: "", degree: "", fieldOfStudy: "", startDate: "", endDate: "", description: "" });
+      setShowAddEdu(false);
+    }
+  };
+
+  const handleDeleteEducation = async (id: string) => {
+    const result = await api.deleteEducation(id);
+    if (!result.error) {
+      setUserEducation(prev => prev.filter(e => e.id !== id));
+    }
+  };
 
   return (
     <div className="min-h-[100dvh] w-full bg-background flex flex-col">
@@ -123,6 +171,12 @@ export default function EducationPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5 }}
         >
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+          ) : (
+          <>
           <div className="flex items-center gap-3 mb-2">
             <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center font-black text-primary-foreground text-lg shadow-lg shadow-primary/30">
               <GraduationCap size={20} />
@@ -132,6 +186,128 @@ export default function EducationPage() {
               <p className="text-sm text-muted-foreground">Learn, grow, and get certified — built for Ethiopian learners</p>
             </div>
           </div>
+
+          {/* My Education Records */}
+          {isLoggedIn && (
+            <div className="mt-8">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-bold text-foreground">My Education Records</h2>
+                <button
+                  onClick={() => setShowAddEdu(!showAddEdu)}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-primary text-primary-foreground text-sm font-bold shadow-lg shadow-primary/30 hover:opacity-90 transition-opacity"
+                >
+                  <Plus size={14} />
+                  Add Education
+                </button>
+              </div>
+
+              {showAddEdu && (
+                <motion.form
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  onSubmit={handleAddEducation}
+                  className="rounded-2xl border border-border/50 bg-card/60 p-6 mb-4 space-y-4"
+                >
+                  {eduError && (
+                    <div className="text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-xl px-4 py-2">{eduError}</div>
+                  )}
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] uppercase tracking-widest font-mono text-muted-foreground">Institution Name *</label>
+                      <input
+                        value={eduForm.institutionName}
+                        onChange={(e) => setEduForm(prev => ({ ...prev, institutionName: e.target.value }))}
+                        placeholder="Addis Ababa University"
+                        className="w-full px-4 py-2.5 rounded-xl border border-border/60 bg-secondary/40 text-foreground placeholder:text-muted-foreground/40 text-sm focus:outline-none focus:border-primary/50 transition-colors"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] uppercase tracking-widest font-mono text-muted-foreground">Degree *</label>
+                      <input
+                        value={eduForm.degree}
+                        onChange={(e) => setEduForm(prev => ({ ...prev, degree: e.target.value }))}
+                        placeholder="B.Sc. Computer Science"
+                        className="w-full px-4 py-2.5 rounded-xl border border-border/60 bg-secondary/40 text-foreground placeholder:text-muted-foreground/40 text-sm focus:outline-none focus:border-primary/50 transition-colors"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] uppercase tracking-widest font-mono text-muted-foreground">Field of Study</label>
+                      <input
+                        value={eduForm.fieldOfStudy}
+                        onChange={(e) => setEduForm(prev => ({ ...prev, fieldOfStudy: e.target.value }))}
+                        placeholder="Software Engineering"
+                        className="w-full px-4 py-2.5 rounded-xl border border-border/60 bg-secondary/40 text-foreground placeholder:text-muted-foreground/40 text-sm focus:outline-none focus:border-primary/50 transition-colors"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] uppercase tracking-widest font-mono text-muted-foreground">Start Date</label>
+                        <input
+                          type="date"
+                          value={eduForm.startDate}
+                          onChange={(e) => setEduForm(prev => ({ ...prev, startDate: e.target.value }))}
+                          className="w-full px-4 py-2.5 rounded-xl border border-border/60 bg-secondary/40 text-foreground text-sm focus:outline-none focus:border-primary/50 transition-colors"
+                        />
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] uppercase tracking-widest font-mono text-muted-foreground">End Date</label>
+                        <input
+                          type="date"
+                          value={eduForm.endDate}
+                          onChange={(e) => setEduForm(prev => ({ ...prev, endDate: e.target.value }))}
+                          className="w-full px-4 py-2.5 rounded-xl border border-border/60 bg-secondary/40 text-foreground text-sm focus:outline-none focus:border-primary/50 transition-colors"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] uppercase tracking-widest font-mono text-muted-foreground">Description</label>
+                    <textarea
+                      value={eduForm.description}
+                      onChange={(e) => setEduForm(prev => ({ ...prev, description: e.target.value }))}
+                      placeholder="Additional details about your studies..."
+                      rows={2}
+                      className="w-full px-4 py-2.5 rounded-xl border border-border/60 bg-secondary/40 text-foreground placeholder:text-muted-foreground/40 text-sm focus:outline-none focus:border-primary/50 transition-colors resize-none"
+                    />
+                  </div>
+                  <button type="submit" className="px-6 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-bold hover:opacity-90 transition-opacity">
+                    Save Education Record
+                  </button>
+                </motion.form>
+              )}
+
+              <div className="space-y-3 mb-8">
+                {userEducation.length === 0 ? (
+                  <div className="text-center py-8 text-muted-foreground text-sm">
+                    No education records yet. Click "Add Education" to get started.
+                  </div>
+                ) : (
+                  userEducation.map((edu) => (
+                    <div key={edu.id} className="rounded-xl border border-border/50 bg-card/60 p-5 flex items-start gap-4">
+                      <div className="w-10 h-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0">
+                        <GraduationCap size={18} className="text-primary" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-bold text-foreground text-sm">{edu.degree}</h3>
+                        <p className="text-sm text-muted-foreground">{edu.institutionName}</p>
+                        {edu.fieldOfStudy && <p className="text-xs text-muted-foreground mt-1">{edu.fieldOfStudy}</p>}
+                        <div className="flex items-center gap-3 mt-2 text-xs text-muted-foreground">
+                          {edu.startDate && <span>{edu.startDate}{edu.endDate ? ` - ${edu.endDate}` : " - Present"}</span>}
+                        </div>
+                        {edu.description && <p className="text-xs text-muted-foreground mt-2">{edu.description}</p>}
+                      </div>
+                      <button
+                        onClick={() => handleDeleteEducation(edu.id)}
+                        className="p-2 rounded-lg text-muted-foreground hover:text-red-400 hover:bg-red-400/10 transition-all shrink-0"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Featured banner */}
           <div className="mt-8 rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/10 to-emerald-500/5 p-8 overflow-hidden relative">
@@ -259,9 +435,15 @@ export default function EducationPage() {
                     >
                       <p className="text-sm text-muted-foreground leading-relaxed mb-4">{course.description}</p>
                       <div className="flex items-center gap-3">
-                        <Link href="/login" className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-bold text-center shadow-lg shadow-primary/30 hover:opacity-90">
-                          Enroll Now
-                        </Link>
+                        {isLoggedIn ? (
+                          <Link href="/education" className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-bold text-center shadow-lg shadow-primary/30 hover:opacity-90">
+                            Enroll Now
+                          </Link>
+                        ) : (
+                          <Link href="/login" className="flex-1 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-bold text-center shadow-lg shadow-primary/30 hover:opacity-90">
+                            Sign in to Enroll
+                          </Link>
+                        )}
                         <button className="px-4 py-2.5 rounded-xl border border-border/60 text-sm text-muted-foreground hover:border-primary/40">
                           Preview
                         </button>
@@ -272,9 +454,7 @@ export default function EducationPage() {
               </motion.div>
             ))}
           </div>
-
-          {filtered.length === 0 && (
-            <div className="text-center py-16 text-muted-foreground">No courses match your filters.</div>
+          </>
           )}
         </motion.div>
       </div>

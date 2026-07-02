@@ -1,48 +1,94 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { Link, useRoute } from "wouter";
-import { ArrowLeft, MapPin, Clock, Briefcase, CheckCircle2, DollarSign, Send, Calendar } from "lucide-react";
+import { ArrowLeft, MapPin, Clock, Briefcase, CheckCircle2, DollarSign, Send, Calendar, Loader2, AlertCircle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { api } from "@/lib/api";
 
-const allJobs = [
-  { id: "1", role: "Frontend Developer", company: "TechAddis Solutions", location: "Addis Ababa", type: "Full-time", field: "Engineering", salary: "ETB 35K–50K", posted: "2 days ago", tags: ["React", "TypeScript", "CSS"], description: "We are looking for a talented frontend developer to join our growing team. You'll work on modern React applications for Ethiopian and international clients. Experience with responsive design and performance optimization is a plus." },
-  { id: "2", role: "Data Scientist", company: "EthioData Labs", location: "Remote", type: "Full-time", field: "Data", salary: "ETB 50K–75K", posted: "1 day ago", tags: ["Python", "ML", "SQL"], description: "Join our data science team to build predictive models and analytics dashboards. We work with healthcare, finance, and agriculture sectors across Ethiopia." },
-  { id: "3", role: "Network Engineer", company: "Ethio Telecom", location: "Addis Ababa", type: "Contract", field: "Engineering", salary: "ETB 45K+", posted: "3 days ago", tags: ["Cisco", "Networking", "Linux"], description: "Support and maintain network infrastructure for Ethiopia's largest telecom provider. CCNA or equivalent certification preferred." },
-  { id: "4", role: "UI/UX Designer", company: "CreativeHub ET", location: "Hybrid", type: "Full-time", field: "Design", salary: "ETB 30K–45K", posted: "Today", tags: ["Figma", "Prototyping", "Design Systems"], description: "Design beautiful, intuitive user experiences for Ethiopian startups and enterprises. Portfolio required." },
-  { id: "5", role: "Backend Developer", company: "FinTech Ethiopia", location: "Addis Ababa", type: "Full-time", field: "Engineering", salary: "ETB 40K–60K", posted: "5 days ago", tags: ["Node.js", "PostgreSQL", "Docker"], description: "Build scalable APIs and backend systems for our financial services platform. Experience with microservices and AWS preferred." },
-  { id: "6", role: "Business Analyst", company: "Commercial Bank of Ethiopia", location: "Addis Ababa", type: "Full-time", field: "Business", salary: "ETB 35K–55K", posted: "1 week ago", tags: ["Excel", "SQL", "Reporting"], description: "Analyze business processes and provide data-driven insights. Work with cross-functional teams to improve operations." },
-];
-
-const fieldColors: Record<string, string> = {
-  Engineering: "text-primary bg-primary/10 border-primary/20",
-  Data: "text-blue-400 bg-blue-400/10 border-blue-400/20",
-  Design: "text-purple-400 bg-purple-400/10 border-purple-400/20",
-  Business: "text-yellow-400 bg-yellow-400/10 border-yellow-400/20",
-};
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  if (days > 7) return `${Math.floor(days / 7)}w ago`;
+  if (days > 0) return `${days}d ago`;
+  if (hours > 0) return `${hours}h ago`;
+  return "Today";
+}
 
 export default function JobDetailPage() {
-  const [match, params] = useRoute("/jobs/:id");
+  const [match, routeParams] = useRoute("/jobs/:id");
+  const params = routeParams as { id: string } | null;
   const { user, isLoggedIn } = useAuth();
+  const [job, setJob] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [applied, setApplied] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [applyError, setApplyError] = useState("");
   const [applyForm, setApplyForm] = useState({ coverLetter: "", phone: "" });
 
+  useEffect(() => {
+    const fetchJob = async () => {
+      if (!params?.id) return;
+      setLoading(true);
+      setError("");
+      
+      const result = await api.getJob(params.id);
+      
+      if (result.error) {
+        setError(result.error);
+      } else if (result.data) {
+        setJob(result.data);
+      }
+      setLoading(false);
+    };
+    
+    fetchJob();
+  }, [params]);
+
   if (!match || !params) return null;
-  const job = allJobs.find((j) => j.id === params.id);
-  if (!job) {
+  
+  if (loading) {
+    return (
+      <div className="min-h-[100dvh] bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+  
+  if (error || !job) {
     return (
       <div className="min-h-[100dvh] bg-background flex items-center justify-center">
         <div className="text-center">
-          <p className="text-muted-foreground">Job not found.</p>
+          <AlertCircle className="w-10 h-10 text-muted-foreground mx-auto mb-3" />
+          <p className="text-muted-foreground">{error || "Job not found."}</p>
           <Link href="/" className="text-primary mt-4 inline-block">Go Home</Link>
         </div>
       </div>
     );
   }
 
-  const handleApply = (e: React.FormEvent) => {
+  const handleApply = async (e: React.FormEvent) => {
     e.preventDefault();
-    setApplied(true);
+    setIsSubmitting(true);
+    setApplyError("");
+    
+    const result = await api.applyForJob(job.id, applyForm.coverLetter);
+    
+    if (result.error) {
+      setApplyError(result.error);
+      setIsSubmitting(false);
+    } else {
+      setApplied(true);
+      setIsSubmitting(false);
+    }
   };
+
+  const salaryStr = job.salaryMin && job.salaryMax 
+    ? `ETB ${job.salaryMin}K-${job.salaryMax}K` 
+    : job.salaryMin 
+    ? `ETB ${job.salaryMin}K+` 
+    : "Negotiable";
 
   return (
     <div className="min-h-[100dvh] w-full bg-background flex flex-col">
@@ -67,42 +113,43 @@ export default function JobDetailPage() {
             <div className="p-8">
               <div className="flex items-start gap-4 mb-6">
                 <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-secondary to-card border border-border flex items-center justify-center font-bold text-foreground text-xl shrink-0">
-                  {job.company[0]}
+                  {(job.companyName || job.title || "?")[0]}
                 </div>
                 <div>
-                  <h1 className="text-2xl font-black text-foreground">{job.role}</h1>
-                  <p className="text-sm text-muted-foreground mt-1">{job.company}</p>
+                  <h1 className="text-2xl font-black text-foreground">{job.title}</h1>
+                  <p className="text-sm text-muted-foreground mt-1">{job.companyName || "Company"}</p>
                 </div>
               </div>
 
               <div className="flex flex-wrap gap-2 mb-6">
-                <span className={`text-xs font-mono px-3 py-1.5 rounded-lg border ${fieldColors[job.field]}`}>
-                  {job.field}
+                <span className="text-xs font-mono px-3 py-1.5 rounded-lg border bg-secondary border-border text-muted-foreground">
+                  {job.jobType}
                 </span>
                 <span className="flex items-center gap-1 text-xs text-muted-foreground bg-secondary border border-border px-3 py-1.5 rounded-lg">
                   <MapPin size={12} /> {job.location}
                 </span>
                 <span className="flex items-center gap-1 text-xs text-muted-foreground bg-secondary border border-border px-3 py-1.5 rounded-lg">
-                  <Clock size={12} /> {job.type}
+                  <Clock size={12} /> {job.jobType}
                 </span>
                 <span className="flex items-center gap-1 text-xs text-yellow-400 bg-yellow-400/10 border border-yellow-400/20 px-3 py-1.5 rounded-lg font-bold">
-                  <DollarSign size={12} /> {job.salary}
+                  <DollarSign size={12} /> {salaryStr}
                 </span>
                 <span className="flex items-center gap-1 text-xs text-muted-foreground bg-secondary border border-border px-3 py-1.5 rounded-lg">
-                  <Calendar size={12} /> Posted {job.posted}
+                  <Calendar size={12} /> Posted {timeAgo(job.createdAt)}
                 </span>
-              </div>
-
-              <div className="flex flex-wrap gap-2 mb-6">
-                {job.tags.map((t) => (
-                  <span key={t} className="text-xs font-mono px-2.5 py-1 rounded-lg bg-secondary border border-border text-muted-foreground">{t}</span>
-                ))}
               </div>
 
               <div className="border-t border-border/40 pt-6">
                 <h3 className="text-sm font-bold text-foreground mb-3">Job Description</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">{job.description}</p>
               </div>
+
+              {job.requirements && (
+                <div className="border-t border-border/40 pt-6 mt-6">
+                  <h3 className="text-sm font-bold text-foreground mb-3">Requirements</h3>
+                  <p className="text-sm text-muted-foreground leading-relaxed">{job.requirements}</p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -133,7 +180,7 @@ export default function JobDetailPage() {
                     <CheckCircle2 className="w-7 h-7 text-primary" />
                   </div>
                   <h3 className="text-lg font-black text-foreground">Application Sent!</h3>
-                  <p className="text-sm text-muted-foreground">{job.company} will review your EMSTS profile and get back to you soon.</p>
+                  <p className="text-sm text-muted-foreground">{job.companyName || "The company"} will review your application and get back to you soon.</p>
                 </motion.div>
               ) : (
                 <form onSubmit={handleApply} className="space-y-5">
@@ -144,15 +191,11 @@ export default function JobDetailPage() {
                   <p className="text-sm text-muted-foreground">
                     Applying as <span className="text-primary font-medium">{user?.name}</span> with your EMSTS profile
                   </p>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] uppercase tracking-widest font-mono text-muted-foreground">Phone Number</label>
-                    <input
-                      value={applyForm.phone}
-                      onChange={(e) => setApplyForm(prev => ({ ...prev, phone: e.target.value }))}
-                      placeholder="+251 9XX XXX XXX"
-                      className="w-full px-4 py-3 rounded-xl border border-border/60 bg-secondary/40 text-foreground placeholder:text-muted-foreground/40 text-sm focus:outline-none focus:border-primary/50 transition-colors"
-                    />
-                  </div>
+                  {applyError && (
+                    <div className="text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-xl px-4 py-2">
+                      {applyError}
+                    </div>
+                  )}
                   <div className="space-y-1.5">
                     <label className="text-[10px] uppercase tracking-widest font-mono text-muted-foreground">Cover Letter (optional)</label>
                     <textarea
@@ -165,10 +208,20 @@ export default function JobDetailPage() {
                   </div>
                   <button
                     type="submit"
-                    className="w-full py-3.5 rounded-xl bg-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-primary/30 hover:opacity-90 transition-opacity"
+                    disabled={isSubmitting}
+                    className="w-full py-3.5 rounded-xl bg-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-primary/30 hover:opacity-90 transition-opacity disabled:opacity-50"
                   >
-                    <Send size={16} />
-                    Submit Application
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 size={16} className="animate-spin" />
+                        Submitting...
+                      </>
+                    ) : (
+                      <>
+                        <Send size={16} />
+                        Submit Application
+                      </>
+                    )}
                   </button>
                 </form>
               )}

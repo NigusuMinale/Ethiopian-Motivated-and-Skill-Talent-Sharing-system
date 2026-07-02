@@ -1,13 +1,18 @@
 import React from "react";
 import Navbar from "@/components/sections/Navbar";
-import Hero from "@/components/sections/Hero";
+import Hero from "@/components/sections/Home";
 import Platform from "@/components/sections/Platform";
 import ForTalent from "@/components/sections/ForTalent";
 import ForCompanies from "@/components/sections/ForCompanies";
 import Jobs from "@/components/sections/Jobs";
 import About from "@/components/sections/About";
 import Contact from "@/components/sections/Contact";
-
+import RegisterPage from "./RegisterPage";
+import LoginPage from "./LoginPage";
+import CoursePage from "@/components/Education/course";
+import CertificatePage from "@/components/Education/certeficat";
+import EducationDashboard from "@/components/Education/dashboard";
+import SettingsPage from "@/components/Education/setting";
 export default function LandingPage() {
   return (
     <div className="min-h-[100dvh] w-full bg-background text-foreground flex flex-col">
@@ -37,6 +42,8 @@ export default function LandingPage() {
             <a href="/" className="hover:text-primary transition-colors">Home</a>
             <a href="/education" className="hover:text-primary transition-colors">Education</a>
             <a href="/company/dashboard" className="hover:text-primary transition-colors">Company</a>
+            <a href="/company/RegisterPage" className="hover:text-primary transition-colors">Register</a>
+            <a href="/company/LoginPage" className="hover:text-primary transition-colors">Login</a>
           </div>
         </div>
       </footer>

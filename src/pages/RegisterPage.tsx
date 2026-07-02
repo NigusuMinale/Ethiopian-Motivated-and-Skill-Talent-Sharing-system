@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { Link, useLocation } from "wouter";
-import { ArrowLeft, UserPlus, User, Building2, Briefcase } from "lucide-react";
+import { ArrowLeft, UserPlus, User, Building2, Briefcase, Loader2, AlertCircle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 export default function RegisterPage() {
@@ -11,10 +11,11 @@ export default function RegisterPage() {
   const [confirm, setConfirm] = useState("");
   const [role, setRole] = useState("jobseeker");
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { register } = useAuth();
   const [, navigate] = useLocation();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     if (!name || !email || !password) {
@@ -25,10 +26,18 @@ export default function RegisterPage() {
       setError("Passwords do not match.");
       return;
     }
-    const ok = register(name, email, password, role);
+    if (password.length < 6) {
+      setError("Password must be at least 6 characters.");
+      return;
+    }
+    setIsSubmitting(true);
+    const ok = await register(name, email, password, role);
+    setIsSubmitting(false);
     if (ok) {
       if (role === "company") navigate("/company/dashboard");
       else navigate("/");
+    } else {
+      setError("Registration failed. Email may already be registered.");
     }
   };
 
@@ -94,7 +103,7 @@ export default function RegisterPage() {
                     type="password"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Create a password"
+                    placeholder="Min 6 characters"
                     className="w-full px-4 py-3 rounded-xl border border-border/60 bg-secondary/40 text-foreground placeholder:text-muted-foreground/40 text-sm focus:outline-none focus:border-primary/50 transition-colors"
                   />
                 </div>
@@ -131,17 +140,28 @@ export default function RegisterPage() {
                 </div>
 
                 {error && (
-                  <div className="text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-xl px-4 py-2">
+                  <div className="flex items-center gap-2 text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-xl px-4 py-2">
+                    <AlertCircle size={16} className="shrink-0" />
                     {error}
                   </div>
                 )}
 
                 <button
                   type="submit"
-                  className="w-full py-3.5 rounded-xl bg-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-primary/30 hover:opacity-90 transition-opacity"
+                  disabled={isSubmitting}
+                  className="w-full py-3.5 rounded-xl bg-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-primary/30 hover:opacity-90 transition-opacity disabled:opacity-50"
                 >
-                  <UserPlus size={16} />
-                  Create Account
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Creating account...
+                    </>
+                  ) : (
+                    <>
+                      <UserPlus size={16} />
+                      Register
+                    </>
+                  )}
                 </button>
               </form>
 

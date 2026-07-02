@@ -1,32 +1,56 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Link } from "wouter";
 import { motion } from "framer-motion";
-import { Search, MapPin, Clock, Briefcase, ArrowRight } from "lucide-react";
+import { Search, MapPin, Clock, Briefcase, ArrowRight, Loader2 } from "lucide-react";
+import { api } from "@/lib/api";
 
-const allJobs = [
-  { role: "Frontend Developer", company: "TechAddis Solutions", location: "Addis Ababa", type: "Full-time", field: "Engineering", salary: "ETB 35K–50K", posted: "2 days ago", tags: ["React", "TypeScript", "CSS"] },
-  { role: "Data Scientist", company: "EthioData Labs", location: "Remote", type: "Full-time", field: "Data", salary: "ETB 50K–75K", posted: "1 day ago", tags: ["Python", "ML", "SQL"] },
-  { role: "Network Engineer", company: "Ethio Telecom", location: "Addis Ababa", type: "Contract", field: "Engineering", salary: "ETB 45K+", posted: "3 days ago", tags: ["Cisco", "Networking", "Linux"] },
-  { role: "UI/UX Designer", company: "CreativeHub ET", location: "Hybrid", type: "Full-time", field: "Design", salary: "ETB 30K–45K", posted: "Today", tags: ["Figma", "Prototyping", "Design Systems"] },
-  { role: "Backend Developer", company: "FinTech Ethiopia", location: "Addis Ababa", type: "Full-time", field: "Engineering", salary: "ETB 40K–60K", posted: "5 days ago", tags: ["Node.js", "PostgreSQL", "Docker"] },
-  { role: "Business Analyst", company: "Commercial Bank of Ethiopia", location: "Addis Ababa", type: "Full-time", field: "Business", salary: "ETB 35K–55K", posted: "1 week ago", tags: ["Excel", "SQL", "Reporting"] },
-];
-
-const fields = ["All", "Engineering", "Data", "Design", "Business"];
+const fields = ["All", "Engineering", "Data", "Design", "Business", "Backend", "Web Development", "Networking"];
 const fieldColors: Record<string, string> = {
   Engineering: "text-primary bg-primary/10 border-primary/20",
   Data: "text-blue-400 bg-blue-400/10 border-blue-400/20",
   Design: "text-purple-400 bg-purple-400/10 border-purple-400/20",
   Business: "text-yellow-400 bg-yellow-400/10 border-yellow-400/20",
+  Backend: "text-emerald-400 bg-emerald-400/10 border-emerald-400/20",
+  "Web Development": "text-cyan-400 bg-cyan-400/10 border-cyan-400/20",
+  Networking: "text-orange-400 bg-orange-400/10 border-orange-400/20",
 };
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime();
+  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+  const hours = Math.floor(diff / (1000 * 60 * 60));
+  if (days > 7) return `${Math.floor(days / 7)}w ago`;
+  if (days > 0) return `${days}d ago`;
+  if (hours > 0) return `${hours}h ago`;
+  return "Today";
+}
 
 export default function Jobs() {
   const [filter, setFilter] = useState("All");
   const [query, setQuery] = useState("");
+  const [allJobs, setAllJobs] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    const fetchJobs = async () => {
+      setLoading(true);
+      const result = await api.getJobs({ limit: 20 });
+      if (result.error) {
+        setError(result.error);
+      } else if (result.data?.jobs) {
+        setAllJobs(result.data.jobs);
+      }
+      setLoading(false);
+    };
+    fetchJobs();
+  }, []);
 
   const visible = allJobs.filter((j) => {
-    const matchField = filter === "All" || j.field === filter;
-    const matchQuery = query === "" || j.role.toLowerCase().includes(query.toLowerCase()) || j.company.toLowerCase().includes(query.toLowerCase());
+    const matchField = filter === "All" || j.title?.toLowerCase().includes(filter.toLowerCase()) || j.jobType === filter.toLowerCase();
+    const matchQuery = query === "" || 
+      (j.title || "").toLowerCase().includes(query.toLowerCase()) || 
+      (j.companyName || "").toLowerCase().includes(query.toLowerCase());
     return matchField && matchQuery;
   });
 
@@ -85,55 +109,67 @@ export default function Jobs() {
           </div>
         </motion.div>
 
-        <div className="space-y-4">
-          {visible.length === 0 ? (
-            <div className="text-center py-16 text-muted-foreground">No jobs match your search.</div>
-          ) : (
-            visible.map((job, i) => (
-              <motion.div
-                key={i}
-                initial={{ opacity: 0, y: 16 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ delay: i * 0.06 }}
-                className="rounded-2xl border border-border/50 bg-card/60 p-6 hover:border-primary/40 hover:-translate-y-0.5 transition-all duration-200 group"
-              >
-                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-                  <div className="flex items-start gap-4">
-                    <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-secondary to-card border border-border flex items-center justify-center font-bold text-foreground text-lg shrink-0">
-                      {job.company[0]}
-                    </div>
-                    <div>
-                      <h3 className="font-bold text-foreground group-hover:text-primary transition-colors text-base">{job.role}</h3>
-                      <p className="text-sm text-muted-foreground mt-0.5">{job.company}</p>
-                      <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-muted-foreground">
-                        <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{job.location}</span>
-                        <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" />{job.posted}</span>
-                        <span className="flex items-center gap-1"><Briefcase className="w-3.5 h-3.5" />{job.type}</span>
+        {loading ? (
+          <div className="flex items-center justify-center py-16">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : error ? (
+          <div className="text-center py-16 text-muted-foreground">
+            <p>{error}</p>
+          </div>
+        ) : visible.length === 0 ? (
+          <div className="text-center py-16 text-muted-foreground">No jobs match your search.</div>
+        ) : (
+          <div className="space-y-4">
+            {visible.map((job, i) => {
+              const salaryStr = job.salaryMin && job.salaryMax 
+                ? `ETB ${job.salaryMin}K-${job.salaryMax}K` 
+                : job.salaryMin 
+                ? `ETB ${job.salaryMin}K+` 
+                : "Negotiable";
+
+              return (
+                <motion.div
+                  key={job.id || i}
+                  initial={{ opacity: 0, y: 16 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.06 }}
+                  className="rounded-2xl border border-border/50 bg-card/60 p-6 hover:border-primary/40 hover:-translate-y-0.5 transition-all duration-200 group"
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                    <div className="flex items-start gap-4">
+                      <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-secondary to-card border border-border flex items-center justify-center font-bold text-foreground text-lg shrink-0">
+                        {(job.companyName || job.title || "?")[0]}
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-foreground group-hover:text-primary transition-colors text-base">{job.title}</h3>
+                        <p className="text-sm text-muted-foreground mt-0.5">{job.companyName || "Company"}</p>
+                        <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" />{job.location}</span>
+                          <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" />{timeAgo(job.createdAt)}</span>
+                          <span className="flex items-center gap-1"><Briefcase className="w-3.5 h-3.5" />{job.jobType}</span>
+                        </div>
                       </div>
                     </div>
+                    <div className="flex flex-col items-start sm:items-end gap-2 shrink-0">
+                      <span className="text-[10px] font-mono uppercase px-2.5 py-1 rounded-lg border bg-secondary border-border text-muted-foreground">
+                        {job.jobType}
+                      </span>
+                      <span className="text-sm font-bold text-yellow-400">{salaryStr}</span>
+                    </div>
                   </div>
-                  <div className="flex flex-col items-start sm:items-end gap-2 shrink-0">
-                    <span className={`text-xs font-mono px-2.5 py-1 rounded-lg border ${fieldColors[job.field] || "text-muted-foreground bg-secondary border-border"}`}>
-                      {job.field}
-                    </span>
-                    <span className="text-sm font-bold text-yellow-400">{job.salary}</span>
+                  <div className="flex items-center justify-between mt-4 pt-4 border-t border-border/40">
+                    <p className="text-xs text-muted-foreground line-clamp-1">{job.description}</p>
+                    <Link href={`/jobs/${job.id}`} className="flex items-center gap-1.5 text-sm font-semibold text-primary hover:gap-2.5 transition-all shrink-0 ml-4">
+                      View & Apply <ArrowRight size={14} />
+                    </Link>
                   </div>
-                </div>
-                <div className="flex items-center justify-between mt-4 pt-4 border-t border-border/40">
-                  <div className="flex flex-wrap gap-1.5">
-                    {job.tags.map((t) => (
-                      <span key={t} className="text-xs font-mono px-2 py-0.5 rounded bg-secondary border border-border text-muted-foreground">{t}</span>
-                    ))}
-                  </div>
-                  <Link href={`/jobs/${i + 1}`} className="flex items-center gap-1.5 text-sm font-semibold text-primary hover:gap-2.5 transition-all">
-                    View & Apply <ArrowRight size={14} />
-                  </Link>
-                </div>
-              </motion.div>
-            ))
-          )}
-        </div>
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
 
         <motion.div
           className="text-center mt-10"

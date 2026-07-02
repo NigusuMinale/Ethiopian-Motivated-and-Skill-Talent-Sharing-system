@@ -11,6 +11,7 @@ import RegisterPage from "@/pages/RegisterPage";
 import JobDetailPage from "@/pages/JobDetailPage";
 import CompanyDashboardPage from "@/pages/CompanyDashboardPage";
 import EducationPage from "@/pages/EducationPage";
+import NotFound from "@/pages/not-found";
 
 const queryClient = new QueryClient();
 
@@ -26,7 +27,7 @@ function App() {
             <Route path="/jobs/:id" component={JobDetailPage} />
             <Route path="/company/dashboard" component={CompanyDashboardPage} />
             <Route path="/education" component={EducationPage} />
-            <Route component={LandingPage} />
+            <Route component={NotFound} />
           </Switch>
           <Toaster />
         </AuthProvider>

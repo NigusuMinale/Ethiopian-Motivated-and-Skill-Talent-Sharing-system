@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { Link, useLocation } from "wouter";
-import { ArrowLeft, LogIn, User, Building2, Briefcase } from "lucide-react";
+import { ArrowLeft, LogIn, User, Building2, Briefcase, Loader2, AlertCircle } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 export default function LoginPage() {
@@ -9,20 +9,25 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [role, setRole] = useState("jobseeker");
   const [error, setError] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const { login } = useAuth();
   const [, navigate] = useLocation();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     if (!email || !password) {
       setError("Please fill in all fields.");
       return;
     }
-    const ok = login(email, password, role);
+    setIsSubmitting(true);
+    const ok = await login(email, password, role);
+    setIsSubmitting(false);
     if (ok) {
       if (role === "company") navigate("/company/dashboard");
       else navigate("/");
+    } else {
+      setError("Invalid email or password. Please try again.");
     }
   };
 
@@ -70,7 +75,8 @@ export default function LoginPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="you@email.com"
-                    className="w-full px-4 py-3 rounded-xl border border-border/60 bg-secondary/40 text-foreground placeholder:text-muted-foreground/40 text-sm focus:outline-none focus:border-primary/50 transition-colors"
+                    disabled={isSubmitting}
+                    className="w-full px-4 py-3 rounded-xl border border-border/60 bg-secondary/40 text-foreground placeholder:text-muted-foreground/40 text-sm focus:outline-none focus:border-primary/50 transition-colors disabled:opacity-50"
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -80,7 +86,8 @@ export default function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter your password"
-                    className="w-full px-4 py-3 rounded-xl border border-border/60 bg-secondary/40 text-foreground placeholder:text-muted-foreground/40 text-sm focus:outline-none focus:border-primary/50 transition-colors"
+                    disabled={isSubmitting}
+                    className="w-full px-4 py-3 rounded-xl border border-border/60 bg-secondary/40 text-foreground placeholder:text-muted-foreground/40 text-sm focus:outline-none focus:border-primary/50 transition-colors disabled:opacity-50"
                   />
                 </div>
 
@@ -92,7 +99,8 @@ export default function LoginPage() {
                         key={r.id}
                         type="button"
                         onClick={() => setRole(r.id)}
-                        className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border text-xs font-medium transition-all ${
+                        disabled={isSubmitting}
+                        className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border text-xs font-medium transition-all disabled:opacity-50 ${
                           role === r.id
                             ? "border-primary bg-primary/10 text-primary"
                             : "border-border/60 text-muted-foreground hover:border-primary/40"
@@ -106,17 +114,28 @@ export default function LoginPage() {
                 </div>
 
                 {error && (
-                  <div className="text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-xl px-4 py-2">
+                  <div className="flex items-center gap-2 text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-xl px-4 py-2">
+                    <AlertCircle size={16} className="shrink-0" />
                     {error}
                   </div>
                 )}
 
                 <button
                   type="submit"
-                  className="w-full py-3.5 rounded-xl bg-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-primary/30 hover:opacity-90 transition-opacity"
+                  disabled={isSubmitting}
+                  className="w-full py-3.5 rounded-xl bg-primary text-primary-foreground font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-primary/30 hover:opacity-90 transition-opacity disabled:opacity-50"
                 >
-                  <LogIn size={16} />
-                  Sign In
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 size={16} className="animate-spin" />
+                      Signing in...
+                    </>
+                  ) : (
+                    <>
+                      <LogIn size={16} />
+                      Sign In
+                    </>
+                  )}
                 </button>
               </form>
 
