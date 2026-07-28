@@ -37,7 +37,7 @@ export default function Jobs() {
       setLoading(true);
       const result = await api.getJobs({ limit: 20 });
       if (result.error) {
-        setError(result.error);
+        setError(result.error.message || "Failed to load jobs.");
       } else if (result.data?.jobs) {
         setAllJobs(result.data.jobs);
       }

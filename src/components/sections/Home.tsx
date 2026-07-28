@@ -77,9 +77,9 @@ export default function Hero() {
           transition={{ duration: 0.7, delay: 0.3 }}
         >
           {[
-            { icon: "👤", title: "For Individuals", desc: "Build a public profile. Share skills and verified certificates. Get discovered.", color: "border-primary/30 hover:border-primary/60 hover:bg-primary/5" },
-            { icon: "🏢", title: "For Companies", desc: "Advertise products, post jobs, and hire from Ethiopia's best talent pool.", color: "border-yellow-400/30 hover:border-yellow-400/60 hover:bg-yellow-400/5" },
-            { icon: "🔍", title: "For Job Seekers", desc: "Browse verified opportunities. Apply with your EMSTS profile. Land your dream role.", color: "border-emerald-500/30 hover:border-emerald-500/60 hover:bg-emerald-500/5" },
+            { icon: "", title: "For Individuals", desc: "Build a public profile. Share skills and verified certificates. Get discovered.", color: "border-primary/30 hover:border-primary/60 hover:bg-primary/5" },
+            { icon: "", title: "For Companies", desc: "Advertise products, post jobs, and hire from Ethiopia's best talent pool.", color: "border-yellow-400/30 hover:border-yellow-400/60 hover:bg-yellow-400/5" },
+            { icon: "", title: "For Job Seekers", desc: "Browse verified opportunities. Apply with your EMSTS profile. Land your dream role.", color: "border-emerald-500/30 hover:border-emerald-500/60 hover:bg-emerald-500/5" },
           ].map((card, i) => (
             <motion.div
               key={i}

@@ -6,7 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 
 const NAV_LINKS = [
   { name: "Platform", href: "#platform" },
-  { name: "For Talent", href: "#talent" },
+  { name: "For Talent", href: "/forTalent" },
   { name: "For Companies", href: "#companies" },
   { name: "Jobs", href: "#jobs" },
   { name: "About", href: "#about" },
@@ -57,7 +57,7 @@ export default function Navbar() {
 
         <nav className="hidden md:flex items-center gap-7">
           {NAV_LINKS.map((link) => (
-            <a
+            <Link
               key={link.name}
               href={link.href}
               onClick={() => setActive(link.href)}
@@ -72,7 +72,7 @@ export default function Navbar() {
                   className="absolute -bottom-0.5 left-0 right-0 h-[2px] bg-primary rounded-full"
                 />
               )}
-            </a>
+            </Link>
           ))}
           <Link href="/education" className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors">
             Education

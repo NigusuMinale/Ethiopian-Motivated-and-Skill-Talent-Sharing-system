@@ -1,10 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { 
   Briefcase, 
   Plus, 
-  Search, 
-  Filter, 
   MapPin, 
   Clock, 
   DollarSign,
@@ -12,17 +10,14 @@ import {
   Edit2,
   Trash2,
   Eye,
-  MoreVertical,
   Building2,
   Calendar,
-  ChevronDown,
-  CheckCircle2,
-  XCircle,
-  Loader2,
-  Send
+  CheckCircle2
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { Link } from "wouter";
+import { api } from "@/lib/api";
+import { StatCard, FormModal, SearchFilter } from "@/shared/components/common";
 
 interface Job {
   id: string;
@@ -40,76 +35,34 @@ interface Job {
   tags: string[];
 }
 
-const mockJobs: Job[] = [
-  {
-    id: "j1",
-    title: "Senior Frontend Developer",
-    company: "TechAddis Solutions",
-    location: "Addis Ababa",
-    type: "Full-time",
-    salary: "ETB 50K - 80K",
-    applicants: 24,
-    status: "active",
-    postedAt: "2 days ago",
-    views: 156,
-    description: "We are looking for an experienced Frontend Developer to join our team.",
-    requirements: ["5+ years React experience", "TypeScript proficiency", "Leadership skills"],
-    tags: ["React", "TypeScript", "Remote"]
-  },
-  {
-    id: "j2",
-    title: "Data Scientist",
-    company: "TechAddis Solutions",
-    location: "Remote",
-    type: "Full-time",
-    salary: "ETB 60K - 90K",
-    applicants: 18,
-    status: "active",
-    postedAt: "5 days ago",
-    views: 89,
-    description: "Join our data science team to build ML models.",
-    requirements: ["Python", "Machine Learning", "SQL"],
-    tags: ["Python", "ML", "Data"]
-  },
-  {
-    id: "j3",
-    title: "UI/UX Designer",
-    company: "TechAddis Solutions",
-    location: "Addis Ababa",
-    type: "Full-time",
-    salary: "ETB 35K - 55K",
-    applicants: 0,
-    status: "draft",
-    postedAt: "",
-    views: 0,
-    description: "Design beautiful interfaces for our products.",
-    requirements: ["Figma", "User Research", "Prototyping"],
-    tags: ["Figma", "Design"]
-  },
-  {
-    id: "j4",
-    title: "Backend Developer",
-    company: "TechAddis Solutions",
-    location: "Addis Ababa",
-    type: "Full-time",
-    salary: "ETB 45K - 70K",
-    applicants: 31,
-    status: "closed",
-    postedAt: "30 days ago",
-    views: 234,
-    description: "Build scalable backend services.",
-    requirements: ["Node.js", "PostgreSQL", "AWS"],
-    tags: ["Node.js", "API"]
-  }
-];
-
 export default function CompanyJobManagement() {
   const { user, isLoggedIn } = useAuth();
-  const [jobs, setJobs] = useState<Job[]>(mockJobs);
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "active" | "draft" | "closed">("all");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [selectedJob, setSelectedJob] = useState<Job | null>(null);
+
+  useEffect(() => {
+    const fetchJobs = async () => {
+      if (!isLoggedIn || user?.role !== "company") {
+        setLoading(false);
+        return;
+      }
+      try {
+        const result = await api.getJobs();
+        if (result.data?.jobs) {
+          setJobs(result.data.jobs);
+        }
+      } catch (err) {
+        console.error("Failed to load jobs");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchJobs();
+  }, [isLoggedIn, user?.role]);
 
   const filteredJobs = jobs.filter(job => {
     const matchesSearch = job.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -190,42 +143,30 @@ export default function CompanyJobManagement() {
 
           {/* Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="rounded-2xl border border-border/50 bg-card/60 p-5">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 rounded-xl bg-primary/10 text-primary">
-                  <Briefcase size={18} />
-                </div>
-                <span className="text-xs text-muted-foreground uppercase">Total Jobs</span>
-              </div>
-              <p className="text-2xl font-black text-foreground">{stats.total}</p>
-            </div>
-            <div className="rounded-2xl border border-border/50 bg-card/60 p-5">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 rounded-xl bg-green-500/10 text-green-500">
-                  <CheckCircle2 size={18} />
-                </div>
-                <span className="text-xs text-muted-foreground uppercase">Active</span>
-              </div>
-              <p className="text-2xl font-black text-green-500">{stats.active}</p>
-            </div>
-            <div className="rounded-2xl border border-border/50 bg-card/60 p-5">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 rounded-xl bg-blue-500/10 text-blue-500">
-                  <Users size={18} />
-                </div>
-                <span className="text-xs text-muted-foreground uppercase">Applicants</span>
-              </div>
-              <p className="text-2xl font-black text-blue-500">{stats.totalApplicants}</p>
-            </div>
-            <div className="rounded-2xl border border-border/50 bg-card/60 p-5">
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-2 rounded-xl bg-purple-500/10 text-purple-500">
-                  <Eye size={18} />
-                </div>
-                <span className="text-xs text-muted-foreground uppercase">Total Views</span>
-              </div>
-              <p className="text-2xl font-black text-purple-500">{stats.totalViews}</p>
-            </div>
+            <StatCard
+              icon={Briefcase}
+              label="Total Jobs"
+              value={stats.total}
+              color="blue"
+            />
+            <StatCard
+              icon={CheckCircle2}
+              label="Active"
+              value={stats.active}
+              color="green"
+            />
+            <StatCard
+              icon={Users}
+              label="Applicants"
+              value={stats.totalApplicants}
+              color="blue"
+            />
+            <StatCard
+              icon={Eye}
+              label="Total Views"
+              value={stats.totalViews}
+              color="purple"
+            />
           </div>
         </motion.div>
 
@@ -234,33 +175,29 @@ export default function CompanyJobManagement() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="flex flex-col md:flex-row gap-4 mb-8"
+          className="mb-8"
         >
-          <div className="relative flex-1">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search jobs..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 rounded-xl border border-border/60 bg-card/60 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50"
-            />
-          </div>
-          <div className="flex gap-2">
-            {(["all", "active", "draft", "closed"] as const).map((status) => (
-              <button
-                key={status}
-                onClick={() => setStatusFilter(status)}
-                className={`px-4 py-2 rounded-xl text-sm font-medium capitalize border transition-all ${
-                  statusFilter === status
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-card/60 text-muted-foreground border-border/60 hover:border-primary/40"
-                }`}
-              >
-                {status}
-              </button>
-            ))}
-          </div>
+          <SearchFilter
+            searchPlaceholder="Search jobs by title or location..."
+            onSearch={(value) => setSearchQuery(value)}
+            filters={[
+              {
+                id: "status",
+                label: "Filter by Status",
+                options: [
+                  { value: "all", label: "All Status" },
+                  { value: "active", label: "Active" },
+                  { value: "draft", label: "Draft" },
+                  { value: "closed", label: "Closed" }
+                ]
+              }
+            ]}
+            onFilterChange={(filterId, value) => {
+              if (filterId === "status") {
+                setStatusFilter(value as any);
+              }
+            }}
+          />
         </motion.div>
 
         {/* Jobs List */}
@@ -352,203 +289,148 @@ export default function CompanyJobManagement() {
         )}
 
         {/* Create Job Modal */}
-        {showCreateModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm"
-            onClick={() => setShowCreateModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="w-full max-w-2xl rounded-3xl border border-border/60 bg-card shadow-2xl overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="h-2 bg-gradient-to-r from-primary via-emerald-400 to-yellow-400" />
-              <div className="p-8">
-                <h2 className="text-xl font-black text-foreground mb-6">Post New Job</h2>
-                
-                <div className="space-y-4">
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-xs uppercase tracking-wider text-muted-foreground">Job Title</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Senior Developer"
-                        className="w-full px-4 py-3 rounded-xl border border-border/60 bg-secondary/40 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50"
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs uppercase tracking-wider text-muted-foreground">Location</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. Addis Ababa"
-                        className="w-full px-4 py-3 rounded-xl border border-border/60 bg-secondary/40 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <label className="text-xs uppercase tracking-wider text-muted-foreground">Job Type</label>
-                      <select className="w-full px-4 py-3 rounded-xl border border-border/60 bg-secondary/40 text-foreground focus:outline-none focus:border-primary/50">
-                        <option>Full-time</option>
-                        <option>Part-time</option>
-                        <option>Contract</option>
-                        <option>Internship</option>
-                      </select>
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs uppercase tracking-wider text-muted-foreground">Salary Range</label>
-                      <input
-                        type="text"
-                        placeholder="e.g. ETB 50K - 80K"
-                        className="w-full px-4 py-3 rounded-xl border border-border/60 bg-secondary/40 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-wider text-muted-foreground">Description</label>
-                    <textarea
-                      rows={4}
-                      placeholder="Describe the job role and responsibilities..."
-                      className="w-full px-4 py-3 rounded-xl border border-border/60 bg-secondary/40 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 resize-none"
-                    />
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-xs uppercase tracking-wider text-muted-foreground">Requirements (comma separated)</label>
-                    <input
-                      type="text"
-                      placeholder="e.g. React, TypeScript, 5+ years experience"
-                      className="w-full px-4 py-3 rounded-xl border border-border/60 bg-secondary/40 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex gap-3 mt-6">
-                  <button
-                    onClick={() => setShowCreateModal(false)}
-                    className="flex-1 py-3.5 rounded-xl border border-border/60 text-muted-foreground font-semibold text-sm hover:border-primary/40 transition-all"
-                  >
-                    Cancel
-                  </button>
-                  <button className="flex-1 py-3.5 rounded-xl bg-primary text-primary-foreground font-bold text-sm shadow-lg shadow-primary/30 hover:opacity-90 flex items-center justify-center gap-2">
-                    <Send size={16} />
-                    Post Job
-                  </button>
-                </div>
+        <FormModal
+          isOpen={showCreateModal}
+          onClose={() => setShowCreateModal(false)}
+          title="Post New Job"
+          onSubmit={async (formData) => {
+            // Handle job creation
+            console.log("Creating job:", formData);
+            // TODO: Implement job creation API call
+            setShowCreateModal(false);
+          }}
+        >
+          <div className="space-y-4">
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-xs uppercase tracking-wider text-muted-foreground">Job Title</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Senior Developer"
+                  className="w-full px-4 py-3 rounded-xl border border-border/60 bg-secondary/40 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50"
+                />
               </div>
-            </motion.div>
-          </motion.div>
-        )}
+              <div className="space-y-2">
+                <label className="text-xs uppercase tracking-wider text-muted-foreground">Location</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Addis Ababa"
+                  className="w-full px-4 py-3 rounded-xl border border-border/60 bg-secondary/40 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50"
+                />
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <label className="text-xs uppercase tracking-wider text-muted-foreground">Job Type</label>
+                <select className="w-full px-4 py-3 rounded-xl border border-border/60 bg-secondary/40 text-foreground focus:outline-none focus:border-primary/50">
+                  <option>Full-time</option>
+                  <option>Part-time</option>
+                  <option>Contract</option>
+                  <option>Internship</option>
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-xs uppercase tracking-wider text-muted-foreground">Salary Range</label>
+                <input
+                  type="text"
+                  placeholder="e.g. ETB 50K - 80K"
+                  className="w-full px-4 py-3 rounded-xl border border-border/60 bg-secondary/40 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs uppercase tracking-wider text-muted-foreground">Description</label>
+              <textarea
+                rows={4}
+                placeholder="Describe the job role and responsibilities..."
+                className="w-full px-4 py-3 rounded-xl border border-border/60 bg-secondary/40 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50 resize-none"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-xs uppercase tracking-wider text-muted-foreground">Requirements (comma separated)</label>
+              <input
+                type="text"
+                placeholder="e.g. React, TypeScript, 5+ years experience"
+                className="w-full px-4 py-3 rounded-xl border border-border/60 bg-secondary/40 text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-primary/50"
+              />
+            </div>
+          </div>
+        </FormModal>
 
         {/* Job Detail Modal */}
-        {selectedJob && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-background/80 backdrop-blur-sm"
-            onClick={() => setSelectedJob(null)}
-          >
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              className="w-full max-w-2xl rounded-3xl border border-border/60 bg-card shadow-2xl overflow-hidden"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="h-2 bg-gradient-to-r from-primary to-emerald-500" />
-              <div className="p-8">
-                <div className="flex items-start justify-between mb-6">
-                  <div className="flex items-center gap-4">
-                    <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-primary/20 to-emerald-500/20 border border-primary/20 flex items-center justify-center">
-                      <Building2 className="w-6 h-6 text-primary" />
-                    </div>
-                    <div>
-                      <h2 className="text-xl font-black text-foreground">{selectedJob.title}</h2>
-                      <p className="text-muted-foreground">{selectedJob.company}</p>
-                    </div>
+        <FormModal
+          isOpen={selectedJob !== null}
+          onClose={() => setSelectedJob(null)}
+          title={selectedJob?.title || "Job Details"}
+          subtitle={selectedJob?.company}
+          onSubmit={async () => {
+            // Handle job details
+            console.log("Viewing job applicants:", selectedJob?.id);
+          }}
+        >
+          {selectedJob && (
+            <div className="space-y-6">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="p-4 rounded-xl bg-secondary/40 border border-border/40">
+                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                    <MapPin size={14} />
+                    <span className="text-xs">Location</span>
                   </div>
-                  <span className={`text-xs font-bold uppercase px-3 py-1 rounded-lg border ${getStatusColor(selectedJob.status)}`}>
-                    {selectedJob.status}
-                  </span>
+                  <p className="font-semibold text-foreground">{selectedJob.location}</p>
                 </div>
-
-                <div className="grid grid-cols-2 gap-4 mb-6">
-                  <div className="p-4 rounded-xl bg-secondary/40 border border-border/40">
-                    <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                      <MapPin size={14} />
-                      <span className="text-xs">Location</span>
-                    </div>
-                    <p className="font-semibold text-foreground">{selectedJob.location}</p>
+                <div className="p-4 rounded-xl bg-secondary/40 border border-border/40">
+                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                    <Clock size={14} />
+                    <span className="text-xs">Type</span>
                   </div>
-                  <div className="p-4 rounded-xl bg-secondary/40 border border-border/40">
-                    <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                      <Clock size={14} />
-                      <span className="text-xs">Type</span>
-                    </div>
-                    <p className="font-semibold text-foreground">{selectedJob.type}</p>
+                  <p className="font-semibold text-foreground">{selectedJob.type}</p>
+                </div>
+                <div className="p-4 rounded-xl bg-secondary/40 border border-border/40">
+                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                    <DollarSign size={14} />
+                    <span className="text-xs">Salary</span>
                   </div>
-                  <div className="p-4 rounded-xl bg-secondary/40 border border-border/40">
-                    <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                      <DollarSign size={14} />
-                      <span className="text-xs">Salary</span>
-                    </div>
-                    <p className="font-semibold text-foreground">{selectedJob.salary}</p>
+                  <p className="font-semibold text-foreground">{selectedJob.salary}</p>
+                </div>
+                <div className="p-4 rounded-xl bg-secondary/40 border border-border/40">
+                  <div className="flex items-center gap-2 text-muted-foreground mb-1">
+                    <Users size={14} />
+                    <span className="text-xs">Applicants</span>
                   </div>
-                  <div className="p-4 rounded-xl bg-secondary/40 border border-border/40">
-                    <div className="flex items-center gap-2 text-muted-foreground mb-1">
-                      <Users size={14} />
-                      <span className="text-xs">Applicants</span>
-                    </div>
-                    <p className="font-semibold text-foreground">{selectedJob.applicants}</p>
-                  </div>
-                </div>
-
-                <div className="mb-6">
-                  <h3 className="font-bold text-foreground mb-2">Description</h3>
-                  <p className="text-muted-foreground">{selectedJob.description}</p>
-                </div>
-
-                <div className="mb-6">
-                  <h3 className="font-bold text-foreground mb-2">Requirements</h3>
-                  <ul className="space-y-2">
-                    {selectedJob.requirements.map((req, i) => (
-                      <li key={i} className="flex items-center gap-2 text-muted-foreground">
-                        <CheckCircle2 size={14} className="text-primary" />
-                        {req}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="flex flex-wrap gap-2 mb-6">
-                  {selectedJob.tags.map((tag) => (
-                    <span key={tag} className="text-xs font-mono px-3 py-1.5 rounded-lg bg-secondary border border-border text-muted-foreground">
-                      {tag}
-                    </span>
-                  ))}
-                </div>
-
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setSelectedJob(null)}
-                    className="flex-1 py-3.5 rounded-xl border border-border/60 text-muted-foreground font-semibold text-sm hover:border-primary/40 transition-all"
-                  >
-                    Close
-                  </button>
-                  {selectedJob.status === "active" && (
-                    <button className="flex-1 py-3.5 rounded-xl bg-primary text-primary-foreground font-bold text-sm shadow-lg shadow-primary/30 hover:opacity-90">
-                      View Applicants
-                    </button>
-                  )}
+                  <p className="font-semibold text-foreground">{selectedJob.applicants}</p>
                 </div>
               </div>
-            </motion.div>
-          </motion.div>
-        )}
+
+              <div>
+                <h3 className="font-bold text-foreground mb-2">Description</h3>
+                <p className="text-muted-foreground">{selectedJob.description}</p>
+              </div>
+
+              <div>
+                <h3 className="font-bold text-foreground mb-2">Requirements</h3>
+                <ul className="space-y-2">
+                  {selectedJob.requirements.map((req, i) => (
+                    <li key={i} className="flex items-center gap-2 text-muted-foreground">
+                      <CheckCircle2 size={14} className="text-primary" />
+                      {req}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                {selectedJob.tags.map((tag) => (
+                  <span key={tag} className="text-xs font-mono px-3 py-1.5 rounded-lg bg-secondary border border-border text-muted-foreground">
+                    {tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </FormModal>
       </div>
     </div>
   );

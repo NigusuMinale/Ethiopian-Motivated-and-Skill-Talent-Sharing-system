@@ -66,7 +66,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const result = await api.login(email, password);
     
     if (result.error) {
-      setError(result.error);
+      setError(result.error.message || "Login failed.");
       setIsLoading(false);
       return false;
     }
@@ -94,7 +94,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const result = await api.register(name, email, password, role);
     
     if (result.error) {
-      setError(result.error);
+      setError(result.error.message || "Registration failed.");
       setIsLoading(false);
       return false;
     }

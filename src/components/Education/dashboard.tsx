@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { 
   LayoutDashboard, 
@@ -18,9 +18,11 @@ import {
   Users,
   Video,
   FileText,
-  MessageCircle
+  MessageCircle,
+  Loader2
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { api } from "@/lib/api";
 
 interface EnrolledCourse {
   id: string;
@@ -44,113 +46,50 @@ interface Achievement {
   target?: number;
 }
 
-const mockEnrolledCourses: EnrolledCourse[] = [
-  {
-    id: "c2",
-    title: "React and Modern Frontend Development",
-    instructor: "TechAddis Academy",
-    progress: 45,
-    completedLessons: 14,
-    totalLessons: 32,
-    lastAccessed: "2 hours ago",
-    nextLesson: "Building Components with Props",
-    color: "from-blue-500 to-cyan-500"
-  },
-  {
-    id: "c5",
-    title: "UI/UX Design Principles",
-    instructor: "CreativeHub ET",
-    progress: 80,
-    completedLessons: 16,
-    totalLessons: 20,
-    lastAccessed: "1 day ago",
-    nextLesson: "Creating High-Fidelity Prototypes",
-    color: "from-pink-500 to-rose-500"
-  },
-  {
-    id: "c9",
-    title: "JavaScript Fundamentals",
-    instructor: "EMSTS Academy",
-    progress: 100,
-    completedLessons: 18,
-    totalLessons: 18,
-    lastAccessed: "3 days ago",
-    nextLesson: "Course Completed",
-    color: "from-yellow-500 to-amber-500"
-  }
-];
-
-const mockAchievements: Achievement[] = [
-  {
-    id: "a1",
-    title: "Fast Learner",
-    description: "Complete 5 lessons in one day",
-    icon: "⚡",
-    unlockedAt: "2025-01-15",
-    progress: 5,
-    target: 5
-  },
-  {
-    id: "a2",
-    title: "Course Master",
-    description: "Complete your first course",
-    icon: "🏆",
-    unlockedAt: "2025-01-20",
-    progress: 1,
-    target: 1
-  },
-  {
-    id: "a3",
-    title: "Dedicated Student",
-    description: "Study for 7 consecutive days",
-    icon: "🔥",
-    progress: 5,
-    target: 7
-  },
-  {
-    id: "a4",
-    title: "Perfect Score",
-    description: "Score 100% on any quiz",
-    icon: "⭐",
-    progress: 0,
-    target: 1
-  },
-  {
-    id: "a5",
-    title: "Social Learner",
-    description: "Participate in 3 discussions",
-    icon: "💬",
-    progress: 1,
-    target: 3
-  },
-  {
-    id: "a6",
-    title: "Knowledge Seeker",
-    description: "Enroll in 5 courses",
-    icon: "📚",
-    progress: 3,
-    target: 5
-  }
-];
-
-const mockStats = {
-  coursesEnrolled: 5,
-  coursesCompleted: 1,
-  totalHoursLearned: 42,
-  currentStreak: 5,
-  certificatesEarned: 2,
-  communityPosts: 12
-};
+interface DashboardStats {
+  coursesEnrolled: number;
+  coursesCompleted: number;
+  totalHoursLearned: number;
+  currentStreak: number;
+  certificatesEarned: number;
+  communityPosts: number;
+}
 
 export default function EducationDashboard() {
   const { user, isLoggedIn } = useAuth();
   const [activeTab, setActiveTab] = useState<"overview" | "courses" | "achievements">("overview");
+  const [enrolledCourses, setEnrolledCourses] = useState<EnrolledCourse[]>([]);
+  const [achievements, setAchievements] = useState<Achievement[]>([]);
+  const [stats, setStats] = useState<DashboardStats>({
+    coursesEnrolled: 0,
+    coursesCompleted: 0,
+    totalHoursLearned: 0,
+    currentStreak: 0,
+    certificatesEarned: 0,
+    communityPosts: 0
+  });
+  const [loading, setLoading] = useState(true);
 
-  const totalProgress = mockEnrolledCourses.length > 0
-    ? Math.round(mockEnrolledCourses.reduce((acc, c) => acc + c.progress, 0) / mockEnrolledCourses.length)
+  useEffect(() => {
+    const fetchDashboardData = async () => {
+      try {
+        const result = await api.getMyApplications();
+        // Transform API data to match component needs
+        // This will depend on actual API response structure
+      } catch (err) {
+        console.error("Failed to load dashboard data");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDashboardData();
+  }, []);
+
+  const totalProgress = enrolledCourses.length > 0
+    ? Math.round(enrolledCourses.reduce((acc, c) => acc + c.progress, 0) / enrolledCourses.length)
     : 0;
 
-  const unlockedAchievements = mockAchievements.filter(a => a.unlockedAt).length;
+  const unlockedAchievements = achievements.filter(a => a.unlockedAt).length;
 
   const tabs = [
     { id: "overview", label: "Overview", icon: <LayoutDashboard size={16} /> },
@@ -186,16 +125,16 @@ export default function EducationDashboard() {
             <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
               <div>
                 <h2 className="text-xl font-bold text-foreground mb-1">
-                  Welcome back, {user?.name || "Learner"}! 👋
+                  Welcome back, {user?.name || "Learner"}
                 </h2>
                 <p className="text-muted-foreground">
-                  You're on a {mockStats.currentStreak}-day learning streak. Keep it up!
+                  You're on a {stats.currentStreak}-day learning streak. Keep it up!
                 </p>
               </div>
               <div className="flex items-center gap-3">
                 <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-orange-500/20 border border-orange-500/30">
                   <Flame className="w-5 h-5 text-orange-500" />
-                  <span className="font-bold text-orange-500">{mockStats.currentStreak} days</span>
+                  <span className="font-bold text-orange-500">{stats.currentStreak} days</span>
                 </div>
                 <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-yellow-500/20 border border-yellow-500/30">
                   <Zap className="w-5 h-5 text-yellow-500" />
@@ -220,7 +159,7 @@ export default function EducationDashboard() {
               </div>
               <span className="text-xs text-muted-foreground uppercase tracking-wider">Enrolled</span>
             </div>
-            <p className="text-3xl font-black text-foreground">{mockStats.coursesEnrolled}</p>
+            <p className="text-3xl font-black text-foreground">{stats.coursesEnrolled}</p>
             <p className="text-xs text-muted-foreground mt-1">courses</p>
           </div>
 
@@ -231,7 +170,7 @@ export default function EducationDashboard() {
               </div>
               <span className="text-xs text-muted-foreground uppercase tracking-wider">Completed</span>
             </div>
-            <p className="text-3xl font-black text-green-500">{mockStats.coursesCompleted}</p>
+            <p className="text-3xl font-black text-green-500">{stats.coursesCompleted}</p>
             <p className="text-xs text-muted-foreground mt-1">courses</p>
           </div>
 
@@ -242,7 +181,7 @@ export default function EducationDashboard() {
               </div>
               <span className="text-xs text-muted-foreground uppercase tracking-wider">Hours</span>
             </div>
-            <p className="text-3xl font-black text-yellow-500">{mockStats.totalHoursLearned}</p>
+            <p className="text-3xl font-black text-yellow-500">{stats.totalHoursLearned}</p>
             <p className="text-xs text-muted-foreground mt-1">learned</p>
           </div>
 
@@ -253,8 +192,9 @@ export default function EducationDashboard() {
               </div>
               <span className="text-xs text-muted-foreground uppercase tracking-wider">Certificates</span>
             </div>
-            <p className="text-3xl font-black text-purple-500">{mockStats.certificatesEarned}</p>
+            <p className="text-3xl font-black text-purple-500">{stats.certificatesEarned}</p>
             <p className="text-xs text-muted-foreground mt-1">earned</p>
+            <button className="text-xs text-muted-foreground mt-nigus">view</button>
           </div>
         </motion.div>
 
@@ -293,7 +233,7 @@ export default function EducationDashboard() {
               </div>
               
               <div className="space-y-4">
-                {mockEnrolledCourses.filter(c => c.progress < 100).map((course, index) => (
+                {enrolledCourses.filter(c => c.progress < 100).map((course, index) => (
                   <motion.div
                     key={course.id}
                     initial={{ opacity: 0, x: -20 }}
@@ -350,7 +290,7 @@ export default function EducationDashboard() {
               </div>
               
               <div className="grid md:grid-cols-3 gap-4">
-                {mockAchievements.filter(a => a.unlockedAt).slice(0, 3).map((achievement, index) => (
+                {achievements.filter(a => a.unlockedAt).slice(0, 3).map((achievement, index) => (
                   <motion.div
                     key={achievement.id}
                     initial={{ opacity: 0, scale: 0.95 }}
@@ -373,7 +313,7 @@ export default function EducationDashboard() {
                   </motion.div>
                 ))}
 
-                {mockAchievements.filter(a => !a.unlockedAt).slice(0, 1).map((achievement, index) => (
+                {achievements.filter(a => !a.unlockedAt).slice(0, 1).map((achievement, index) => (
                   <motion.div
                     key={achievement.id}
                     initial={{ opacity: 0, scale: 0.95 }}
@@ -446,7 +386,7 @@ export default function EducationDashboard() {
             animate={{ opacity: 1, y: 0 }}
           >
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {mockEnrolledCourses.map((course, index) => (
+              {enrolledCourses.map((course, index) => (
                 <motion.div
                   key={course.id}
                   initial={{ opacity: 0, y: 20 }}
@@ -514,7 +454,7 @@ export default function EducationDashboard() {
             animate={{ opacity: 1, y: 0 }}
           >
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {mockAchievements.map((achievement, index) => {
+              {achievements.map((achievement, index) => {
                 const isUnlocked = !!achievement.unlockedAt;
                 const progress = achievement.target ? (achievement.progress || 0) / achievement.target : 0;
                 

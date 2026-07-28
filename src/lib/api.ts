@@ -2,9 +2,15 @@
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
 
+interface ApiError {
+  code: string;
+  message: string;
+  details?: Array<{ field: string; message: string }>;
+}
+
 interface ApiResponse<T> {
   data?: T;
-  error?: string;
+  error?: ApiError;
   message?: string;
 }
 
@@ -14,7 +20,6 @@ class ApiClient {
 
   constructor(baseUrl: string) {
     this.baseUrl = baseUrl;
-    // Load token from localStorage on init
     this.token = localStorage.getItem("emsts_token");
   }
 
@@ -29,13 +34,6 @@ class ApiClient {
 
   getToken(): string | null {
     return this.token;
-  }
-
-  // Map frontend role names to backend role names
-  private mapRole(role: string): string {
-    if (role === "individual" || role === "jobseeker") return "job_seeker";
-    if (role === "company") return "company";
-    return role;
   }
 
   private async request<T>(
@@ -62,20 +60,25 @@ class ApiClient {
       const data = await response.json();
 
       if (!response.ok) {
-        // Backend returns { error: { code, message } }
-        const errorMsg = data.error?.message || data.message || data.error || `HTTP error ${response.status}`;
-        return { error: errorMsg };
+        return {
+          error: data.error || { code: 'HTTP_ERROR', message: `HTTP error ${response.status}` },
+        };
       }
 
-      return { data, message: data.message };
+      if (data.token && data.user) {
+        return { data: data as any };
+      } else if (data.user) {
+        return { data: data as any };
+      } else {
+        return { data, message: data.message };
+      }
     } catch (error) {
       return {
-        error: error instanceof Error ? error.message : "Network error",
+        error: { code: 'NETWORK_ERROR', message: error instanceof Error ? error.message : 'Network error' },
       };
     }
   }
 
-  // Auth endpoints
   async login(email: string, password: string): Promise<ApiResponse<{ user: any; token: string }>> {
     return this.request("/auth/login", {
       method: "POST",
@@ -86,24 +89,22 @@ class ApiClient {
   async register(name: string, email: string, password: string, role: string): Promise<ApiResponse<{ user: any; token: string }>> {
     return this.request("/auth/register", {
       method: "POST",
-      body: JSON.stringify({ name, email, password, role: this.mapRole(role) }),
+      body: JSON.stringify({ name, email, password, role }),
     });
   }
 
-  async getProfile(): Promise<ApiResponse<any>> {
+  async getProfile(): Promise<ApiResponse<{ user: any }>> {
     return this.request("/auth/me", {
       method: "GET",
     });
   }
 
-  // Jobs endpoints
-  async getJobs(params?: { page?: number; limit?: number; location?: string; jobType?: string; search?: string }): Promise<ApiResponse<{ jobs: any[]; total: number; page: number; limit: number }>> {
+  async getJobs(params?: { page?: number; limit?: number; location?: string; jobType?: string }): Promise<ApiResponse<{ jobs: any[]; total: number; page: number }>> {
     const queryParams = new URLSearchParams();
     if (params?.page) queryParams.set("page", params.page.toString());
     if (params?.limit) queryParams.set("limit", params.limit.toString());
     if (params?.location) queryParams.set("location", params.location);
     if (params?.jobType) queryParams.set("jobType", params.jobType);
-    if (params?.search) queryParams.set("search", params.search);
     
     const query = queryParams.toString();
     return this.request(`/jobs${query ? `?${query}` : ""}`, {
@@ -137,7 +138,6 @@ class ApiClient {
     });
   }
 
-  // Applications endpoints
   async applyForJob(jobId: string, coverLetter: string): Promise<ApiResponse<any>> {
     return this.request("/applications", {
       method: "POST",
@@ -157,12 +157,6 @@ class ApiClient {
     });
   }
 
-  async getCompanyApplications(): Promise<ApiResponse<any>> {
-    return this.request("/applications/company", {
-      method: "GET",
-    });
-  }
-
   async updateApplicationStatus(applicationId: string, status: string): Promise<ApiResponse<any>> {
     return this.request(`/applications/${applicationId}/status`, {
       method: "PUT",
@@ -170,7 +164,6 @@ class ApiClient {
     });
   }
 
-  // Education endpoints
   async getEducation(): Promise<ApiResponse<any>> {
     return this.request("/education", {
       method: "GET",
@@ -197,7 +190,6 @@ class ApiClient {
     });
   }
 
-  // Company endpoints
   async getCompanyProfile(): Promise<ApiResponse<any>> {
     return this.request("/companies/profile", {
       method: "GET",
@@ -211,13 +203,12 @@ class ApiClient {
     });
   }
 
-  async getCompanyJobs(): Promise<ApiResponse<any>> {
-    return this.request("/companies/jobs", {
+  async getCertificates(): Promise<ApiResponse<any>> {
+    return this.request("/companies/certificates", {
       method: "GET",
     });
   }
 
-  // Talent/Profile endpoints
   async searchTalents(params?: { skills?: string; name?: string }): Promise<ApiResponse<any>> {
     const queryParams = new URLSearchParams();
     if (params?.skills) queryParams.set("skills", params.skills);
@@ -242,7 +233,6 @@ class ApiClient {
     });
   }
 
-  // Contact endpoints
   async submitContact(data: { name: string; email: string; subject: string; message: string }): Promise<ApiResponse<any>> {
     return this.request("/contact", {
       method: "POST",
@@ -250,7 +240,6 @@ class ApiClient {
     });
   }
 
-  // Landing page content
   async getLandingContent(): Promise<ApiResponse<any>> {
     return this.request("/landing", {
       method: "GET",

@@ -36,7 +36,7 @@ export default function JobDetailPage() {
       const result = await api.getJob(params.id);
       
       if (result.error) {
-        setError(result.error);
+        setError(result.error.message || "Unable to load job details.");
       } else if (result.data) {
         setJob(result.data);
       }
@@ -76,7 +76,7 @@ export default function JobDetailPage() {
     const result = await api.applyForJob(job.id, applyForm.coverLetter);
     
     if (result.error) {
-      setApplyError(result.error);
+      setApplyError(result.error.message || "Unable to submit application.");
       setIsSubmitting(false);
     } else {
       setApplied(true);

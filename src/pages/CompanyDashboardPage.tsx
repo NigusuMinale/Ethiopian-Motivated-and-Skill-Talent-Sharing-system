@@ -1,95 +1,146 @@
 import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Link } from "wouter";
-import { ArrowLeft, Building2, Users, Award, Search, CheckCircle2, XCircle, Eye, Shield, Loader2, Briefcase, Clock } from "lucide-react";
+import { 
+  LayoutDashboard, 
+  Briefcase,
+  Users,
+  Building2,
+  TrendingUp,
+  Plus,
+  MapPin,
+  Clock,
+  DollarSign,
+  Eye,
+  Edit2,
+  Trash2,
+  CheckCircle2,
+  Search,
+  Filter,
+  Calendar,
+  Loader2
+} from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { Link } from "wouter";
 import { api } from "@/lib/api";
+import { StatCard, FormModal, SearchFilter } from "@/shared/components/common";
 
-function timeAgo(dateStr: string): string {
-  const diff = Date.now() - new Date(dateStr).getTime();
-  const days = Math.floor(diff / (1000 * 60 * 60 * 24));
-  const hours = Math.floor(diff / (1000 * 60 * 60));
-  if (days > 7) return `${Math.floor(days / 7)}w ago`;
-  if (days > 0) return `${days}d ago`;
-  if (hours > 0) return `${hours}h ago`;
-  return "Today";
+type TabType = "overview" | "jobs" | "talent" | "groups" | "ads" | "applications";
+
+interface Job {
+  id: string;
+  title: string;
+  company: string;
+  location: string;
+  type: "Full-time" | "Part-time" | "Contract" | "Internship";
+  salary: string;
+  applicants: number;
+  status: "active" | "draft" | "closed";
+  postedAt: string;
+  views: number;
+  description: string;
+  requirements: string[];
+  tags: string[];
 }
 
-const statusColors: Record<string, string> = {
-  pending: "bg-yellow-400/10 text-yellow-400 border-yellow-400/25",
-  reviewed: "bg-blue-400/10 text-blue-400 border-blue-400/25",
-  accepted: "bg-primary/10 text-primary border-primary/25",
-  rejected: "bg-red-400/10 text-red-400 border-red-400/25",
-};
+interface Talent {
+  id: string;
+  name: string;
+  title: string;
+  location: string;
+  skills: string[];
+  experience: number;
+  rating: number;
+  reviews: number;
+  avatar?: string;
+  status: "active" | "open";
+}
+
+interface Group {
+  id: string;
+  name: string;
+  description: string;
+  members: number;
+  createdAt: string;
+  status: "active" | "archived";
+}
+
+interface Advertisement {
+  id: string;
+  title: string;
+  type: string;
+  budget: number;
+  spent: number;
+  reach: number;
+  clicks: number;
+  status: "active" | "paused" | "completed";
+  startDate: string;
+  endDate: string;
+}
 
 export default function CompanyDashboardPage() {
   const { user, isLoggedIn } = useAuth();
-  const [tab, setTab] = useState<"applicants" | "jobs">("applicants");
-  const [searchFilter, setSearchFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState<"all" | "pending" | "reviewed" | "accepted" | "rejected">("all");
-  const [applicants, setApplicants] = useState<any[]>([]);
-  const [jobs, setJobs] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [activeTab, setActiveTab] = useState<TabType>("overview");
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [talents, setTalents] = useState<Talent[]>([]);
+  const [groups, setGroups] = useState<Group[]>([]);
+  const [ads, setAds] = useState<Advertisement[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | "active" | "draft" | "closed" | "paused" | "completed">("all");
+  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [selectedJob, setSelectedJob] = useState<Job | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
-      if (!isLoggedIn || user?.role !== "company") return;
-      setLoading(true);
-      setError("");
-      
-      const [appsResult, jobsResult] = await Promise.all([
-        api.getCompanyApplications(),
-        api.getCompanyJobs(),
-      ]);
-
-      if (appsResult.error) {
-        setError(appsResult.error);
-      } else if (appsResult.data?.applications) {
-        setApplicants(appsResult.data.applications);
+      if (!isLoggedIn || user?.role !== "company") {
+        setLoading(false);
+        return;
       }
-
-      if (jobsResult.data?.jobs) {
-        setJobs(jobsResult.data.jobs);
+      try {
+        // Fetch all company data in parallel
+        const [jobsRes, talentRes] = await Promise.all([
+          api.getJobs(),
+          api.searchTalents?.() || Promise.resolve({ data: { talents: [] } })
+        ]);
+        
+        if (jobsRes.data?.jobs) {
+          setJobs(jobsRes.data.jobs);
+        }
+        
+        if (talentRes.data?.talents) {
+          setTalents(talentRes.data.talents);
+        }
+        
+        // TODO: Add API calls for groups and ads when available
+        // For now using empty arrays
+        setGroups([]);
+        setAds([]);
+        
+      } catch (err) {
+        console.error("Failed to load company dashboard data:", err);
+        // Continue with empty arrays on error
+      } finally {
+        setLoading(false);
       }
-      
-      setLoading(false);
     };
     
     fetchData();
   }, [isLoggedIn, user?.role]);
 
-  const filteredApplicants = applicants.filter((a) => {
-    const matchSearch = searchFilter === "" || 
-      (a.applicantName || "").toLowerCase().includes(searchFilter.toLowerCase()) ||
-      (a.jobTitle || "").toLowerCase().includes(searchFilter.toLowerCase());
-    const matchStatus = statusFilter === "all" || a.status === statusFilter;
-    return matchSearch && matchStatus;
-  });
-
-  const handleStatusChange = async (applicationId: string, newStatus: string) => {
-    const result = await api.updateApplicationStatus(applicationId, newStatus);
-    if (!result.error) {
-      setApplicants(prev => prev.map(a => 
-        a.id === applicationId ? { ...a, status: newStatus } : a
-      ));
-    }
-  };
-
   if (!isLoggedIn || user?.role !== "company") {
     return (
-      <div className="min-h-[100dvh] bg-background flex items-center justify-center">
-        <div className="text-center max-w-md px-6">
-          <div className="w-16 h-16 rounded-full bg-primary/15 border border-primary/30 flex items-center justify-center mx-auto mb-4">
-            <Building2 className="w-8 h-8 text-primary" />
+      <div className="min-h-screen bg-background flex items-center justify-center p-6">
+        <div className="text-center max-w-md">
+          <div className="w-20 h-20 rounded-full bg-primary/15 border border-primary/30 flex items-center justify-center mx-auto mb-6">
+            <Building2 className="w-10 h-10 text-primary" />
           </div>
-          <h1 className="text-xl font-black text-foreground mb-2">Company Dashboard</h1>
-          <p className="text-sm text-muted-foreground mb-6">This area is for verified company accounts. Sign in as a company to view job applicants and manage your listings.</p>
+          <h1 className="text-2xl font-black text-foreground mb-3">Company Dashboard</h1>
+          <p className="text-muted-foreground mb-6">Sign in as a company to manage jobs, talent, and campaigns.</p>
           <div className="flex items-center justify-center gap-3">
-            <Link href="/login" className="px-6 py-2.5 rounded-xl bg-primary text-primary-foreground font-bold text-sm shadow-lg shadow-primary/30">
-              Sign In as Company
+            <Link href="/login" className="px-6 py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm">
+              Sign In
             </Link>
-            <Link href="/register" className="px-6 py-2.5 rounded-xl border border-border/60 text-muted-foreground font-semibold text-sm hover:border-primary/40">
+            <Link href="/register" className="px-6 py-3 rounded-xl border border-border/60 text-muted-foreground font-semibold text-sm">
               Register
             </Link>
           </div>
@@ -98,192 +149,362 @@ export default function CompanyDashboardPage() {
     );
   }
 
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  const stats = {
+    activeJobs: jobs.filter(j => j.status === "active").length,
+    totalApplicants: jobs.reduce((acc, j) => acc + j.applicants, 0),
+    totalTalent: talents.length,
+    totalGroups: groups.length,
+    adSpent: ads.reduce((acc, a) => acc + a.spent, 0),
+    adReach: ads.reduce((acc, a) => acc + a.reach, 0)
+  };
+
+  const tabs = [
+    { id: "overview", label: "Overview", icon: <LayoutDashboard size={16} /> },
+    { id: "jobs", label: "Job Listings", icon: <Briefcase size={16} /> },
+    { id: "talent", label: "Talent Search", icon: <Users size={16} /> },
+    { id: "groups", label: "Talent Groups", icon: <Users size={16} /> },
+    { id: "ads", label: "Advertisements", icon: <TrendingUp size={16} /> },
+    { id: "applications", label: "Applications", icon: <Calendar size={16} /> },
+  ];
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case "active": return "text-green-500 bg-green-500/10 border-green-500/20";
+      case "draft": return "text-yellow-500 bg-yellow-500/10 border-yellow-500/20";
+      case "closed": return "text-muted-foreground bg-secondary border-border";
+      case "paused": return "text-orange-500 bg-orange-500/10 border-orange-500/20";
+      case "completed": return "text-blue-500 bg-blue-500/10 border-blue-500/20";
+      default: return "text-muted-foreground bg-secondary border-border";
+    }
+  };
+
   return (
-    <div className="min-h-[100dvh] w-full bg-background flex flex-col">
-      <div className="absolute inset-0 pointer-events-none">
-        <div className="absolute top-1/4 right-0 w-[400px] h-[400px] bg-yellow-400/5 rounded-full blur-[120px]" />
+    <div className="min-h-screen bg-background text-foreground">
+      <div className="relative">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[400px] bg-primary/5 rounded-full blur-[140px]" />
       </div>
 
-      <div className="relative z-10 max-w-6xl mx-auto w-full px-6 pt-8 pb-16">
-        <Link href="/" className="inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6">
-          <ArrowLeft size={16} />
-          Back to Home
-        </Link>
-
-        <div className="flex items-center gap-4 mb-8">
-          <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center font-black text-primary-foreground text-xl shadow-lg shadow-primary/30">
-            {user?.name?.[0] || "C"}
-          </div>
-          <div>
-            <h1 className="text-2xl font-black text-foreground">Company Dashboard</h1>
-            <p className="text-sm text-muted-foreground">Welcome back, {user?.name}</p>
-          </div>
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-3 gap-4 mb-8">
-          {[
-            { icon: <Briefcase size={20} />, label: "Active Jobs", value: jobs.filter(j => j.status === "active").length },
-            { icon: <Users size={20} />, label: "Total Applicants", value: applicants.length },
-            { icon: <Shield size={20} />, label: "Pending Review", value: applicants.filter(a => a.status === "pending").length },
-          ].map((s, i) => (
-            <div key={i} className="rounded-2xl border border-border/50 bg-card/60 p-5 flex items-center gap-4">
-              <div className="p-2.5 rounded-xl bg-primary/10 border border-primary/20 text-primary">{s.icon}</div>
-              <div>
-                <p className="text-xs text-muted-foreground">{s.label}</p>
-                <p className="text-xl font-black text-foreground">{s.value}</p>
-              </div>
+      <div className="relative z-10 max-w-7xl mx-auto px-6 py-12">
+        {/* Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-8"
+        >
+          <div className="flex items-center gap-4 mb-6">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-primary to-emerald-600 flex items-center justify-center shadow-lg shadow-primary/30">
+              <Building2 className="w-7 h-7 text-white" />
             </div>
-          ))}
-        </div>
+            <div>
+              <h1 className="text-3xl font-black text-foreground">Company Dashboard</h1>
+              <p className="text-muted-foreground">Manage jobs, talent, and campaigns in one place</p>
+            </div>
+          </div>
+
+          {/* Stats */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <StatCard icon={Briefcase} label="Active Jobs" value={stats.activeJobs} color="blue" />
+            <StatCard icon={Users} label="Applicants" value={stats.totalApplicants} color="green" />
+            <StatCard icon={Users} label="Saved Talent" value={stats.totalTalent} color="purple" />
+            <StatCard icon={TrendingUp} label="Ad Reach" value={stats.adReach > 0 ? (stats.adReach / 1000).toFixed(0) + "K" : "0"} color="orange" />
+          </div>
+        </motion.div>
 
         {/* Tabs */}
-        <div className="flex gap-2 mb-6">
-          {[
-            { id: "applicants" as const, label: "Job Applicants", icon: <Users size={16} /> },
-            { id: "jobs" as const, label: "My Job Posts", icon: <Briefcase size={16} /> },
-          ].map((t) => (
+        <div className="flex gap-2 mb-8 border-b border-border/40 pb-4 overflow-x-auto">
+          {tabs.map((tab) => (
             <button
-              key={t.id}
-              onClick={() => setTab(t.id)}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium border transition-all ${
-                tab === t.id
-                  ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/20"
-                  : "bg-secondary/40 text-muted-foreground border-border/50 hover:border-primary/40"
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as TabType)}
+              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold transition-all whitespace-nowrap ${
+                activeTab === tab.id
+                  ? "bg-primary text-primary-foreground shadow-lg shadow-primary/25"
+                  : "text-muted-foreground hover:text-foreground hover:bg-secondary"
               }`}
             >
-              {t.icon}
-              {t.label}
+              {tab.icon}
+              {tab.label}
             </button>
           ))}
         </div>
 
-        {loading ? (
-          <div className="flex items-center justify-center py-20">
-            <Loader2 className="w-8 h-8 animate-spin text-primary" />
-          </div>
-        ) : error ? (
-          <div className="text-center py-20 text-muted-foreground">{error}</div>
-        ) : tab === "applicants" ? (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-            <div className="flex flex-col sm:flex-row gap-3 mb-6">
-              <div className="relative flex-1">
-                <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <input
-                  type="text"
-                  value={searchFilter}
-                  onChange={(e) => setSearchFilter(e.target.value)}
-                  placeholder="Search applicants or jobs..."
-                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-border/60 bg-card/60 text-foreground placeholder:text-muted-foreground/50 text-sm focus:outline-none focus:border-primary/50 transition-colors"
-                />
-              </div>
-              <div className="flex gap-2 flex-wrap">
-                {(["all", "pending", "reviewed", "accepted", "rejected"] as const).map((f) => (
-                  <button
-                    key={f}
-                    onClick={() => setStatusFilter(f)}
-                    className={`px-4 py-2 rounded-xl text-sm font-medium border capitalize transition-all ${
-                      statusFilter === f
-                        ? "bg-primary text-primary-foreground border-primary"
-                        : "bg-secondary/40 text-muted-foreground border-border/50 hover:border-primary/40"
-                    }`}
-                  >
-                    {f}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              {filteredApplicants.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">
-                  {applicants.length === 0 ? "No applications yet." : "No applicants match your filters."}
+        {/* Overview Tab */}
+        {activeTab === "overview" && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-8"
+          >
+            <div className="grid md:grid-cols-2 gap-6">
+              {/* Recent Jobs */}
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-foreground">Recent Job Listings</h3>
+                  <button className="text-sm text-primary font-medium">View All</button>
                 </div>
-              ) : (
-                filteredApplicants.map((app) => (
-                  <div key={app.id} className="rounded-2xl border border-border/50 bg-card/60 p-6 hover:border-primary/30 transition-all">
-                    <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                      <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-emerald-600 flex items-center justify-center font-bold text-white text-lg shrink-0">
-                        {(app.applicantName || "?")[0]}
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-start justify-between gap-3">
-                          <div>
-                            <h3 className="font-bold text-foreground">{app.applicantName || "Unknown"}</h3>
-                            <p className="text-sm text-muted-foreground">
-                              Applied for {app.jobTitle || "a job"} - {timeAgo(app.appliedAt)}
-                            </p>
-                          </div>
-                          <span className={`shrink-0 px-2.5 py-1 rounded-lg text-xs font-bold border capitalize ${statusColors[app.status] || statusColors.pending}`}>
-                            {app.status}
-                          </span>
+                <div className="space-y-3">
+                  {jobs.slice(0, 3).map((job) => (
+                    <div key={job.id} className="rounded-2xl border border-border/50 bg-card/60 p-4">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h4 className="font-semibold text-foreground">{job.title}</h4>
+                          <p className="text-xs text-muted-foreground">{job.location}</p>
                         </div>
-                        {app.coverLetter && (
-                          <p className="text-sm text-muted-foreground mt-2 line-clamp-2">{app.coverLetter}</p>
-                        )}
+                        <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded border ${getStatusColor(job.status)}`}>
+                          {job.status}
+                        </span>
                       </div>
-                      <select
-                        value={app.status}
-                        onChange={(e) => handleStatusChange(app.id, e.target.value)}
-                        className="px-3 py-2 rounded-lg border border-border/60 bg-secondary text-foreground text-sm focus:outline-none focus:border-primary/50 transition-colors shrink-0"
-                      >
-                        <option value="pending">Pending</option>
-                        <option value="reviewed">Reviewed</option>
-                        <option value="accepted">Accepted</option>
-                        <option value="rejected">Rejected</option>
-                      </select>
+                      <div className="flex items-center justify-between mt-3 text-xs text-muted-foreground">
+                        <span>{job.applicants} applicants</span>
+                        <span>{job.views} views</span>
+                      </div>
                     </div>
-                  </div>
-                ))
-              )}
+                  ))}
+                </div>
+              </div>
+
+              {/* Saved Talent */}
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-bold text-foreground">Saved Talent</h3>
+                  <button className="text-sm text-primary font-medium">View All</button>
+                </div>
+                <div className="space-y-3">
+                  {talents.slice(0, 3).map((talent) => (
+                    <div key={talent.id} className="rounded-2xl border border-border/50 bg-card/60 p-4">
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <h4 className="font-semibold text-foreground">{talent.name}</h4>
+                          <p className="text-xs text-muted-foreground">{talent.title}</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-xs font-bold text-yellow-400">{talent.rating} ★</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 mt-2 flex-wrap">
+                        {talent.skills.slice(0, 2).map((skill) => (
+                          <span key={skill} className="text-xs px-2 py-0.5 rounded bg-secondary text-muted-foreground">
+                            {skill}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
             </div>
           </motion.div>
-        ) : (
-          <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}>
-            <div className="space-y-3">
-              {jobs.length === 0 ? (
-                <div className="text-center py-12 text-muted-foreground">You haven't posted any jobs yet.</div>
-              ) : (
-                jobs.map((job) => {
-                  const salaryStr = job.salaryMin && job.salaryMax 
-                    ? `ETB ${job.salaryMin}K-${job.salaryMax}K` 
-                    : job.salaryMin 
-                    ? `ETB ${job.salaryMin}K+` 
-                    : "Negotiable";
-                  const applicantCount = applicants.filter(a => a.jobId === job.id).length;
-                  return (
-                    <div key={job.id} className="rounded-2xl border border-border/50 bg-card/60 p-6 hover:border-primary/30 transition-all">
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-start justify-between gap-3">
-                            <div>
-                              <h3 className="font-bold text-foreground">{job.title}</h3>
-                              <p className="text-sm text-muted-foreground mt-0.5">
-                                {job.location} - {job.jobType} - {salaryStr}
-                              </p>
-                            </div>
-                            <span className={`shrink-0 px-2.5 py-1 rounded-lg text-xs font-bold border capitalize ${
-                              job.status === "active" 
-                                ? "bg-primary/10 text-primary border-primary/25" 
-                                : "bg-red-400/10 text-red-400 border-red-400/25"
-                            }`}>
-                              {job.status}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-4 mt-3 text-xs text-muted-foreground">
-                            <span className="flex items-center gap-1"><Users size={12} /> {applicantCount} applicants</span>
-                            <span className="flex items-center gap-1"><Clock size={12} /> Posted {timeAgo(job.createdAt)}</span>
-                          </div>
+        )}
+
+        {/* Jobs Tab */}
+        {activeTab === "jobs" && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-foreground">Job Listings</h2>
+              <button 
+                onClick={() => setShowCreateModal(true)}
+                className="flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-primary-foreground font-bold text-sm shadow-lg shadow-primary/30 hover:opacity-90"
+              >
+                <Plus size={18} />
+                Post New Job
+              </button>
+            </div>
+
+            <SearchFilter
+              searchPlaceholder="Search jobs..."
+              onSearch={(value) => setSearchQuery(value)}
+              filters={[
+                {
+                  id: "status",
+                  label: "Filter by Status",
+                  options: [
+                    { value: "all", label: "All" },
+                    { value: "active", label: "Active" },
+                    { value: "draft", label: "Draft" },
+                    { value: "closed", label: "Closed" }
+                  ]
+                }
+              ]}
+              onFilterChange={(filterId, value) => {
+                if (filterId === "status") setStatusFilter(value as any);
+              }}
+            />
+
+            <div className="space-y-4">
+              {jobs
+                .filter(job => statusFilter === "all" || job.status === statusFilter)
+                .map((job) => (
+                  <div key={job.id} className="rounded-2xl border border-border/50 bg-card/60 p-6">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div>
+                        <h3 className="font-bold text-lg text-foreground">{job.title}</h3>
+                        <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground mt-1">
+                          <span className="flex items-center gap-1"><MapPin size={12} /> {job.location}</span>
+                          <span className="flex items-center gap-1"><Clock size={12} /> {job.type}</span>
+                          <span className="flex items-center gap-1"><DollarSign size={12} /> {job.salary}</span>
                         </div>
-                        <Link href={`/jobs/${job.id}`} className="px-4 py-2 rounded-xl border border-border/60 text-sm text-muted-foreground hover:border-primary/40 hover:text-primary transition-all shrink-0">
-                          View
-                        </Link>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <button className="p-2.5 rounded-xl border border-border/60 text-muted-foreground hover:border-primary/40">
+                          <Eye size={16} />
+                        </button>
+                        <button className="p-2.5 rounded-xl border border-border/60 text-muted-foreground hover:border-primary/40">
+                          <Edit2 size={16} />
+                        </button>
                       </div>
                     </div>
-                  );
-                })
-              )}
+                  </div>
+                ))}
             </div>
+          </motion.div>
+        )}
+
+        {/* Talent Tab */}
+        {activeTab === "talent" && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            <div className="flex items-center justify-between">
+              <h2 className="text-xl font-bold text-foreground">Saved Talent</h2>
+              <Link href="/dashboard/jobs" className="text-sm text-primary font-medium">Browse More</Link>
+            </div>
+
+            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {talents.map((talent, index) => (
+                <motion.div
+                  key={talent.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  className="rounded-2xl border border-border/50 bg-card/60 p-6"
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <h3 className="font-bold text-foreground">{talent.name}</h3>
+                      <p className="text-sm text-muted-foreground">{talent.title}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs font-bold text-yellow-400 flex items-center gap-1">
+                        <span>★</span> {talent.rating}
+                      </p>
+                      <p className="text-xs text-muted-foreground">{talent.reviews} reviews</p>
+                    </div>
+                  </div>
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {talent.skills.slice(0, 3).map((skill) => (
+                      <span key={skill} className="text-xs px-2 py-1 rounded-lg bg-secondary border border-border text-muted-foreground">
+                        {skill}
+                      </span>
+                    ))}
+                  </div>
+                  <p className="text-xs text-muted-foreground mb-4">{talent.experience} years experience • {talent.location}</p>
+                  <button className="w-full py-2.5 rounded-xl bg-primary text-primary-foreground font-semibold text-sm hover:opacity-90">
+                    Contact
+                  </button>
+                </motion.div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
+        {/* Groups Tab */}
+        {activeTab === "groups" && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            <h2 className="text-xl font-bold text-foreground">Talent Groups</h2>
+            <div className="space-y-4">
+              {groups.map((group) => (
+                <div key={group.id} className="rounded-2xl border border-border/50 bg-card/60 p-6">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <h3 className="font-bold text-foreground">{group.name}</h3>
+                      <p className="text-sm text-muted-foreground mt-1">{group.description}</p>
+                    </div>
+                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded border ${getStatusColor(group.status)}`}>
+                      {group.status}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-4 mt-4 text-sm text-muted-foreground">
+                    <span>{group.members} members</span>
+                    <span>Created {group.createdAt}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
+        {/* Ads Tab */}
+        {activeTab === "ads" && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="space-y-6"
+          >
+            <h2 className="text-xl font-bold text-foreground">Advertisements</h2>
+            <div className="space-y-4">
+              {ads.map((ad) => (
+                <div key={ad.id} className="rounded-2xl border border-border/50 bg-card/60 p-6">
+                  <div className="flex items-start justify-between mb-4">
+                    <div>
+                      <h3 className="font-bold text-foreground">{ad.title}</h3>
+                      <p className="text-sm text-muted-foreground">{ad.type}</p>
+                    </div>
+                    <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded border ${getStatusColor(ad.status)}`}>
+                      {ad.status}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-4">
+                    <div>
+                      <p className="text-xs text-muted-foreground">Reach</p>
+                      <p className="text-lg font-bold text-foreground">{(ad.reach / 1000).toFixed(0)}K</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Clicks</p>
+                      <p className="text-lg font-bold text-foreground">{ad.clicks}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Budget</p>
+                      <p className="text-lg font-bold text-foreground">ETB {ad.budget}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">Spent</p>
+                      <p className="text-lg font-bold text-green-500">ETB {ad.spent}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+
+        {/* Applications Tab */}
+        {activeTab === "applications" && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center py-20"
+          >
+            <Briefcase className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
+            <p className="text-lg text-muted-foreground">No new applications</p>
+            <p className="text-sm text-muted-foreground/70">Applications will appear here</p>
           </motion.div>
         )}
       </div>

@@ -1,6 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Award, CheckCircle2, XCircle, Download, Eye, Calendar, ExternalLink } from "lucide-react";
+import { Award, CheckCircle2, XCircle, Download, Eye, Calendar, ExternalLink, Loader2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAuth } from "@/context/AuthContext";
 
@@ -17,69 +17,30 @@ interface Certificate {
   imageUrl?: string;
 }
 
-const mockCertificates: Certificate[] = [
-  {
-    id: "c1",
-    title: "CS50: Introduction to Computer Science",
-    institution: "Harvard University",
-    issueDate: "2025-03-15",
-    credentialId: "CS50-2025-12345",
-    verified: true,
-    skills: ["C", "Python", "SQL", "JavaScript", "HTML", "CSS"],
-    description: "Harvard's legendary introduction to computer science course covering algorithms, data structures, and web development.",
-    imageUrl: "https://cs50.harvard.edu/x/images/cs50x.png"
-  },
-  {
-    id: "c2",
-    title: "AWS Certified Solutions Architect - Associate",
-    institution: "Amazon Web Services",
-    issueDate: "2025-01-20",
-    expiryDate: "2028-01-20",
-    credentialId: "AWS-SAA-C03-789012",
-    verified: true,
-    skills: ["AWS", "Cloud Architecture", "EC2", "S3", "VPC", "IAM"],
-    description: "Validates ability to design distributed systems on AWS infrastructure.",
-    imageUrl: "https://aws.amazon.com/certification/media/aws-certified-solutions-architect-associate.png"
-  },
-  {
-    id: "c3",
-    title: "Google Data Analytics Professional Certificate",
-    institution: "Google / Coursera",
-    issueDate: "2024-11-10",
-    verified: false,
-    skills: ["R", "SQL", "Tableau", "Data Visualization", "Data Cleaning"],
-    description: "Foundational data analytics skills including spreadsheets, SQL, and data visualization.",
-    imageUrl: "https://storage.googleapis.com/images/google-data-analytics-certificate.png"
-  },
-  {
-    id: "c4",
-    title: "Python for Everybody Specialization",
-    institution: "University of Michigan",
-    issueDate: "2025-05-05",
-    credentialId: "PY4E-2025-45678",
-    verified: true,
-    skills: ["Python", "Web Scraping", "JSON", "SQL", "Database Design"],
-    description: "Learn to Program and Analyze Data with Python from the University of Michigan.",
-    imageUrl: "https://www.python.org/static/community_logos/python-logo-master-v3-TM.png"
-  },
-  {
-    id: "c5",
-    title: "CCNA: Introduction to Networks",
-    institution: "Cisco Networking Academy",
-    issueDate: "2024-09-12",
-    verified: false,
-    skills: ["Networking", "Cisco IOS", "Routing", "Switching", "VLAN", "NAT"],
-    description: "Introduction to networking fundamentals, routers, and switches configuration.",
-    imageUrl: "https://www.cisco.com/c/dam/en_us/training-events/eduskill/cisco-netacad/images/ccna-badge.png"
-  },
-];
-
 export default function CertificatePage() {
   const { user, isLoggedIn } = useAuth();
-  const [certificates, setCertificates] = useState<Certificate[]>(mockCertificates);
+  const [certificates, setCertificates] = useState<Certificate[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const [filter, setFilter] = useState<"all" | "verified" | "pending">("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCert, setSelectedCert] = useState<Certificate | null>(null);
+
+  useEffect(() => {
+    const fetchCertificates = async () => {
+      try {
+        const result = await api.getEducation();
+        if (result.data) {
+          setCertificates(result.data);
+        }
+      } catch (err) {
+        setError("Failed to load certificates");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCertificates();
+  }, []);
 
   const filteredCertificates = certificates.filter((cert) => {
     const matchesFilter = filter === "all" || 
@@ -112,6 +73,16 @@ export default function CertificatePage() {
           animate={{ opacity: 1, y: 0 }}
           className="mb-10"
         >
+          {loading ? (
+            <div className="flex items-center justify-center py-20">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+          ) : error ? (
+            <div className="text-center py-10">
+              <p className="text-red-400">{error}</p>
+            </div>
+          ) : (
+          <>
           <div className="flex items-center gap-4 mb-4">
             <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-yellow-400 to-amber-600 flex items-center justify-center shadow-lg shadow-amber-500/30">
               <Award className="w-7 h-7 text-white" />
@@ -152,6 +123,8 @@ export default function CertificatePage() {
               </div>
             </div>
           </div>
+          </>
+          )}
         </motion.div>
 
         {/* Filters */}

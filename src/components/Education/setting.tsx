@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { 
   Settings, 
@@ -26,6 +26,7 @@ import {
   Download
 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
+import { api } from "@/lib/api";
 
 interface ProfileData {
   name: string;
@@ -56,41 +57,33 @@ interface PrivacySettings {
   allowMessaging: boolean;
 }
 
-const mockProfile: ProfileData = {
-  name: "Nigusu Minale",
-  email: "nigusu@example.com",
-  phone: "+251 912 345 678",
-  location: "Addis Ababa, Ethiopia",
-  bio: "Passionate software developer with expertise in React, Node.js, and cloud technologies. Always learning and building solutions for Ethiopia.",
-  dateOfBirth: "1995-06-15",
-  website: "https://nigusu.dev",
-  linkedin: "linkedin.com/in/nigusu"
-};
-
-const mockNotificationSettings: NotificationSettings = {
-  emailUpdates: true,
-  pushNotifications: true,
-  courseUpdates: true,
-  newJobs: false,
-  weeklyDigest: true,
-  marketingEmails: false
-};
-
-const mockPrivacySettings: PrivacySettings = {
-  profileVisibility: "public",
-  showEmail: false,
-  showLocation: true,
-  showCertificates: true,
-  allowMessaging: true
-};
-
 export default function SettingsPage() {
   const { user, logout } = useAuth();
   const [activeSection, setActiveSection] = useState<"profile" | "notifications" | "privacy" | "account">("profile");
+  const [loading, setLoading] = useState(false);
   
-  const [profile, setProfile] = useState<ProfileData>(mockProfile);
-  const [notifications, setNotifications] = useState<NotificationSettings>(mockNotificationSettings);
-  const [privacy, setPrivacy] = useState<PrivacySettings>(mockPrivacySettings);
+  const [profile, setProfile] = useState<ProfileData>({
+    name: user?.name || "",
+    email: user?.email || "",
+    phone: "",
+    location: "",
+    bio: ""
+  });
+  const [notifications, setNotifications] = useState<NotificationSettings>({
+    emailUpdates: true,
+    pushNotifications: true,
+    courseUpdates: true,
+    newJobs: false,
+    weeklyDigest: true,
+    marketingEmails: false
+  });
+  const [privacy, setPrivacy] = useState<PrivacySettings>({
+    profileVisibility: "public",
+    showEmail: false,
+    showLocation: true,
+    showCertificates: true,
+    allowMessaging: true
+  });
   
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);

@@ -36,7 +36,7 @@ export default function Contact() {
     });
 
     if (result.error) {
-      setError(result.error);
+      setError(result.error.message || "Unable to submit your request.");
       setIsSubmitting(false);
     } else {
       setSubmitted(true);

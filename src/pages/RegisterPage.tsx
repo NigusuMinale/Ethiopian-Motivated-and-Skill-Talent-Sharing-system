@@ -12,12 +12,13 @@ export default function RegisterPage() {
   const [role, setRole] = useState("jobseeker");
   const [error, setError] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const { register } = useAuth();
+  const { register, error: authError, clearError } = useAuth();
   const [, navigate] = useLocation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    clearError();
     if (!name || !email || !password) {
       setError("Please fill in all required fields.");
       return;
@@ -139,10 +140,10 @@ export default function RegisterPage() {
                   </div>
                 </div>
 
-                {error && (
+                {(error || authError) && (
                   <div className="flex items-center gap-2 text-sm text-red-400 bg-red-400/10 border border-red-400/20 rounded-xl px-4 py-2">
                     <AlertCircle size={16} className="shrink-0" />
-                    {error}
+                    {error || authError}
                   </div>
                 )}
 

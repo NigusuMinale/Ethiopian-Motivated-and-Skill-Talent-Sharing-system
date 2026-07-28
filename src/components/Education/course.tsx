@@ -1,7 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { BookOpen, PlayCircle, Clock, Users, Star, ChevronRight, Search, Filter, Calendar, Award } from "lucide-react";
+import { BookOpen, PlayCircle, Clock, Users, Star, ChevronRight, Search, Filter, Calendar, Award, Loader2 } from "lucide-react";
 import { Link } from "wouter";
+import { api } from "@/lib/api";
 
 interface Course {
   id: string;
@@ -25,169 +26,6 @@ interface Course {
   progress?: number;
 }
 
-const mockCourses: Course[] = [
-  {
-    id: "c1",
-    title: "Introduction to Python Programming",
-    instructor: "Dr. Nigusu Minale",
-    institution: "EMSTS Academy",
-    category: "Programming",
-    level: "Beginner",
-    duration: "6 weeks",
-    lessons: 24,
-    students: 1240,
-    rating: 4.8,
-    reviews: 312,
-    price: 0,
-    description: "Learn Python from scratch. Variables, loops, functions, OOP, and real-world projects tailored for the Ethiopian tech ecosystem.",
-    longDescription: "This comprehensive course takes you from zero to hero in Python programming. You'll learn everything from basic syntax to advanced object-oriented programming concepts. Each module includes hands-on projects specifically designed for the Ethiopian tech ecosystem, including examples from local startups and businesses.",
-    tags: ["Python", "Programming", "Beginner", "Free"],
-    color: "from-primary to-emerald-600",
-    enrolled: false,
-    progress: 0
-  },
-  {
-    id: "c2",
-    title: "React and Modern Frontend Development",
-    instructor: "TechAddis Academy",
-    institution: "TechAddis Solutions",
-    category: "Web Development",
-    level: "Intermediate",
-    duration: "8 weeks",
-    lessons: 32,
-    students: 856,
-    rating: 4.7,
-    reviews: 198,
-    price: 299,
-    description: "Build modern web applications with React, TypeScript, Tailwind CSS, and Next.js. Deploy your first Ethiopian startup MVP.",
-    longDescription: "Master modern frontend development with React and the latest tools. Learn to build responsive, performant web applications from scratch. This course includes deployment strategies for African hosting providers and payment integrations suitable for Ethiopian businesses.",
-    tags: ["React", "TypeScript", "Frontend", "Next.js"],
-    color: "from-blue-500 to-cyan-500",
-    enrolled: true,
-    progress: 45
-  },
-  {
-    id: "c3",
-    title: "Data Science for Ethiopia",
-    instructor: "EthioData Labs",
-    institution: "EthioData Labs",
-    category: "Data Science",
-    level: "Intermediate",
-    duration: "10 weeks",
-    lessons: 40,
-    students: 620,
-    rating: 4.9,
-    reviews: 156,
-    price: 399,
-    description: "Master data analysis, visualization, and machine learning using Ethiopian datasets. From agriculture to fintech — learn with local context.",
-    longDescription: "This specialized data science course uses real Ethiopian datasets from agriculture, finance, and healthcare sectors. Learn machine learning fundamentals and apply them to solve local challenges. Includes practical projects on crop prediction, financial risk assessment, and healthcare analytics.",
-    tags: ["Python", "ML", "Data Analysis", "TensorFlow"],
-    color: "from-purple-500 to-violet-500",
-    enrolled: false,
-    progress: 0
-  },
-  {
-    id: "c4",
-    title: "CCNA Network Fundamentals",
-    instructor: "Ethio Telecom Academy",
-    institution: "Ethio Telecom",
-    category: "Networking",
-    level: "Beginner",
-    duration: "12 weeks",
-    lessons: 48,
-    students: 2100,
-    rating: 4.6,
-    reviews: 489,
-    price: 499,
-    description: "Prepare for CCNA certification. Learn networking fundamentals, Cisco configurations, and enterprise network design.",
-    longDescription: "Comprehensive networking course preparing you for CCNA certification. Includes hands-on lab exercises using Cisco Packet Tracer and access to real networking equipment through our partnership with Ethio Telecom.",
-    tags: ["Networking", "Cisco", "CCNA", "Routing"],
-    color: "from-orange-500 to-amber-500",
-    enrolled: false,
-    progress: 0
-  },
-  {
-    id: "c5",
-    title: "UI/UX Design Principles",
-    instructor: "CreativeHub ET",
-    institution: "CreativeHub",
-    category: "Design",
-    level: "Beginner",
-    duration: "5 weeks",
-    lessons: 20,
-    students: 430,
-    rating: 4.8,
-    reviews: 98,
-    price: 199,
-    description: "Learn design thinking, user research, wireframing, and prototyping in Figma. Create designs that work for Ethiopian users.",
-    longDescription: "Master the fundamentals of UI/UX design with a focus on designing for Ethiopian users and markets. Learn to conduct user research, create wireframes, and build interactive prototypes in Figma. Includes case studies from successful Ethiopian startups.",
-    tags: ["Figma", "Design", "UX", "Prototyping"],
-    color: "from-pink-500 to-rose-500",
-    enrolled: true,
-    progress: 80
-  },
-  {
-    id: "c6",
-    title: "Backend Development with Node.js",
-    instructor: "Dr. Nigusu Minale",
-    institution: "EMSTS Academy",
-    category: "Backend",
-    level: "Advanced",
-    duration: "8 weeks",
-    lessons: 30,
-    students: 380,
-    rating: 4.7,
-    reviews: 87,
-    price: 349,
-    description: "Build APIs, work with databases, implement authentication, and deploy scalable backends. Perfect for aspiring full-stack developers.",
-    longDescription: "Deep dive into backend development with Node.js. Learn to build secure REST APIs, work with PostgreSQL and MongoDB, implement JWT authentication, and deploy to cloud platforms. Includes best practices for building scalable systems.",
-    tags: ["Node.js", "PostgreSQL", "API", "Express"],
-    color: "from-emerald-500 to-teal-500",
-    enrolled: false,
-    progress: 0
-  },
-  {
-    id: "c7",
-    title: "Mobile App Development with Flutter",
-    instructor: "Addis Tech Hub",
-    institution: "Addis Tech Hub",
-    category: "Mobile Development",
-    level: "Intermediate",
-    duration: "10 weeks",
-    lessons: 38,
-    students: 560,
-    rating: 4.8,
-    reviews: 134,
-    price: 399,
-    description: "Build cross-platform mobile apps for iOS and Android using Flutter. Deploy to Ethiopian app stores and international markets.",
-    longDescription: "Learn to build beautiful, natively compiled mobile applications for iOS and Android from a single codebase. This course covers everything from Flutter basics to advanced state management, Firebase integration, and app store deployment.",
-    tags: ["Flutter", "Dart", "Mobile", "Firebase"],
-    color: "from-cyan-500 to-blue-500",
-    enrolled: false,
-    progress: 0
-  },
-  {
-    id: "c8",
-    title: "Cloud Computing with AWS",
-    instructor: "CloudTech Ethiopia",
-    institution: "CloudTech ET",
-    category: "Cloud Computing",
-    level: "Advanced",
-    duration: "8 weeks",
-    lessons: 28,
-    students: 290,
-    rating: 4.9,
-    reviews: 67,
-    price: 449,
-    description: "Master AWS cloud services for enterprise deployments. From EC2 to Lambda — build scalable cloud infrastructure.",
-    longDescription: "Comprehensive AWS course covering all major services needed to build enterprise-grade applications. Includes hands-on labs, practice exams for AWS certification, and real-world architectures used by Ethiopian enterprises.",
-    tags: ["AWS", "Cloud", "DevOps", "Serverless"],
-    color: "from-yellow-500 to-orange-500",
-    enrolled: false,
-    progress: 0
-  },
-];
-
 const categories = [
   "All",
   "Programming",
@@ -203,12 +41,29 @@ const categories = [
 const levels = ["All Levels", "Beginner", "Intermediate", "Advanced"];
 
 export default function CoursePage() {
-  const [courses] = useState<Course[]>(mockCourses);
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [loading, setLoading] = useState(true);
   const [categoryFilter, setCategoryFilter] = useState("All");
   const [levelFilter, setLevelFilter] = useState("All Levels");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState<"popular" | "rating" | "newest">("popular");
   const [expandedCourse, setExpandedCourse] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        const result = await api.getLandingContent();
+        if (result.data?.courses) {
+          setCourses(result.data.courses);
+        }
+      } catch (err) {
+        console.error("Failed to load courses");
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchCourses();
+  }, []);
 
   const filteredCourses = courses
     .filter((course) => {
